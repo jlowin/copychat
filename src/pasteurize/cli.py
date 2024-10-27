@@ -5,7 +5,7 @@ from rich.console import Console
 import pyperclip
 
 from .core import scan_directory
-from .format import format_files
+from .format import estimate_tokens, format_files
 from .patterns import DEFAULT_EXTENSIONS
 
 app = typer.Typer(
@@ -18,8 +18,8 @@ console = Console()
 @app.command()
 def main(
     source: list[Path] = typer.Argument(
-        ...,
-        help="Source directories to process",
+        None,  # Changed from ... to None to make it optional
+        help="Source directories to process (defaults to current directory)",
         exists=True,
         file_okay=False,
         dir_okay=True,
@@ -56,8 +56,13 @@ def main(
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
     try:
+        # Use current directory if no source provided
+        source_dirs = source if source else [Path.cwd()]
+
         if verbose:
-            console.print(f"Scanning directories: {', '.join(str(s) for s in source)}")
+            console.print(
+                f"Scanning directories: {', '.join(str(s) for s in source_dirs)}"
+            )
 
             if include:
                 console.print(f"Including extensions: {include}")
@@ -74,7 +79,7 @@ def main(
 
         # Scan all directories and combine results
         all_files = []
-        for directory in source:
+        for directory in source_dirs:
             files = scan_directory(
                 directory,
                 include=include_exts,
@@ -109,7 +114,7 @@ def main(
                 pyperclip.copy(markdown)
                 console.print(
                     f"[green]Copied[/] {len(all_files)} files to clipboard "
-                    f"({len(markdown)} characters)"
+                    f"({len(markdown)} chars, ~{estimate_tokens(markdown)} tokens)"
                 )
         except Exception as e:
             console.print(f"[red]Error during output:[/] {str(e)}")

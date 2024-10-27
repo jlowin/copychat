@@ -3,6 +3,7 @@ from typing import Optional
 import sys
 from os.path import commonpath
 from datetime import datetime
+import tiktoken
 
 
 def guess_language(file_path: Path) -> Optional[str]:
@@ -102,6 +103,17 @@ File list:
 """
 
 
+def estimate_tokens(text: str) -> int:
+    """Estimate the number of tokens in the text using GPT tokenizer."""
+    try:
+        # Using cl100k_base (used by GPT-4, Claude)
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+    except Exception:
+        # Fallback to rough estimate if tiktoken fails
+        return len(text) // 4  # Rough estimate: ~4 chars per token
+
+
 def format_files(files: list[Path], verbose: bool = False) -> str:
     """
     Format files into markdown with XML-style tags.
@@ -138,8 +150,13 @@ def format_files(files: list[Path], verbose: bool = False) -> str:
         print("Formatting complete, joining results...", file=sys.stderr)
 
     final_result = "\n".join(result)
+    char_count = len(final_result)
+    token_estimate = estimate_tokens(final_result)
 
     if verbose:
-        print(f"Final output size: {len(final_result)} characters", file=sys.stderr)
+        print(
+            f"Final output: {char_count} characters, ~{token_estimate} tokens",
+            file=sys.stderr,
+        )
 
     return final_result
