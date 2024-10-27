@@ -72,7 +72,7 @@ def scan_directory(
     Scan directory for relevant files.
 
     Args:
-        path: Directory to scan
+        path: Directory to scan (can be relative or absolute)
         include: File extensions to include (without dots)
         extra_patterns: Additional gitignore-style patterns to exclude
         verbose: Whether to print debug information
@@ -80,11 +80,14 @@ def scan_directory(
     Returns:
         List of paths to relevant files
     """
-    if verbose:
-        print(f"\nScanning directory: {path}", file=sys.stderr)
+    # Convert to absolute path first
+    abs_path = path.absolute()
 
-    if not path.is_dir():
-        raise ValueError(f"Path {path} is not a directory")
+    if verbose:
+        print(f"\nScanning directory: {abs_path}", file=sys.stderr)
+
+    if not abs_path.is_dir():
+        raise ValueError(f"Path {abs_path} is not a directory")
 
     # Use provided extensions or defaults
     include_set = {f".{ext.lstrip('.')}" for ext in (include or DEFAULT_EXTENSIONS)}
@@ -93,7 +96,7 @@ def scan_directory(
         print(f"Include extensions: {include_set}", file=sys.stderr)
 
     # Get combined gitignore and default exclusions
-    spec = get_gitignore_spec(path, extra_patterns, verbose)
+    spec = get_gitignore_spec(abs_path, extra_patterns, verbose)
 
     result = []
     processed = 0
@@ -102,7 +105,7 @@ def scan_directory(
     if verbose:
         print("\nStarting file scan...", file=sys.stderr)
 
-    for file_path in path.rglob("*"):
+    for file_path in abs_path.rglob("*"):
         processed += 1
         if verbose and processed % 100 == 0:
             print(
@@ -117,7 +120,7 @@ def scan_directory(
 
         # Get relative path for pattern matching
         try:
-            rel_path = file_path.relative_to(path)
+            rel_path = file_path.relative_to(abs_path)
         except ValueError:
             skipped += 1
             continue
