@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional
 import pathspec
 import sys
 import subprocess
@@ -113,15 +113,29 @@ def get_file_content(
 
 def scan_directory(
     path: Path,
-    include: Optional[Sequence[str]] = None,
-    extra_patterns: Optional[list[str]] = None,
+    include: Optional[list[str]] = None,
+    exclude_patterns: Optional[list[str]] = None,
     diff_mode: DiffMode = DiffMode.FULL,
     verbose: bool = False,
-) -> dict[Path, str]:
+) -> dict[Path, Optional[str]]:
+    """Scan directory for files to process.
+
+    Args:
+        path: Path to scan (can be file or directory)
+        include: List of extensions to include
+        exclude_patterns: Additional glob patterns to exclude
+        diff_mode: How to handle git diffs
+        verbose: Show verbose output
+
+    Returns:
+        Dictionary mapping file paths to git diff info (if any)
     """
-    Scan directory for relevant files.
-    Returns a dict mapping paths to their content based on diff_mode.
-    """
+    if path.is_file():
+        # For single files, just check if it matches filters
+        if include and path.suffix.lstrip(".") not in include:
+            return {}
+        return {path: None}
+
     # Convert to absolute path first
     abs_path = path.absolute()
 
@@ -138,7 +152,7 @@ def scan_directory(
         print(f"Include extensions: {include_set}", file=sys.stderr)
 
     # Get combined gitignore and default exclusions
-    spec = get_gitignore_spec(abs_path, extra_patterns, verbose)
+    spec = get_gitignore_spec(abs_path, exclude_patterns, verbose)
 
     result = {}
     processed = 0

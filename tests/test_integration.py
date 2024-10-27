@@ -79,7 +79,7 @@ def test_exclusion_patterns(sample_project):
     files = scan_directory(
         sample_project,
         include=["py", "js"],
-        extra_patterns=["**/utils/*"],  # Exclude utils directory
+        exclude_patterns=["**/utils/*"],  # Exclude utils directory
     )
 
     paths = {str(f) for f in files}
