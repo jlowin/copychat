@@ -7,7 +7,10 @@ import sys
 
 from .core import scan_directory, DiffMode  # Import DiffMode from core
 from .patterns import DEFAULT_EXTENSIONS
-from .format import estimate_tokens
+from .format import (
+    estimate_tokens,
+    format_files as format_files_xml,
+)  # Rename import to avoid confusion
 
 
 def diff_mode_callback(value: str) -> DiffMode:
@@ -95,12 +98,8 @@ def main(
             console.print("[yellow]No matching files found[/]", file=sys.stderr)
             raise typer.Exit(0)
 
-        # Simple output format for now
-        output = []
-        for file_path, content in sorted(all_files.items()):
-            output.extend([f"File: {file_path}", "```", content, "```", ""])
-
-        result = "\n".join(output)
+        # Use the XML formatter instead of simple formatting
+        result = format_files_xml(list(all_files.keys()), verbose=verbose)
 
         # Handle outputs
         if outfile:

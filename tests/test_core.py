@@ -1,5 +1,5 @@
 import pytest
-from pasteurize.core import find_gitignore, DiffMode
+from copychat.core import find_gitignore, DiffMode
 
 
 def test_diff_mode_enum():

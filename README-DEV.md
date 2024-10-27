@@ -1,6 +1,6 @@
-# pasteurize development notes
+# copychat development notes
 
-Internal development notes and goals for the pasteurize library. This document is for developer reference only.
+Internal development notes and goals for the copychat library. This document is for developer reference only.
 
 ## Core functionality
 
@@ -39,10 +39,10 @@ def example():
 ### Project structure
 
 ```
-pasteurize/
+copychat/
 ├── pyproject.toml      # Project metadata and dependencies
 ├── src/
-│   └── pasteurize/    
+│   └── copychat/    
 │       ├── __init__.py
 │       ├── cli.py      # Typer CLI implementation
 │       ├── core.py     # Core scanning/processing logic

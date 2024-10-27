@@ -167,7 +167,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pasteurize"
+name = "copychat"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

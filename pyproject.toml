@@ -1,5 +1,5 @@
 [project]
-name = "pasteurize"
+name = "copychat"
 version = "0.1.0"
 description = "Convert source code directories into markdown for LLM context"
 authors = []
@@ -15,7 +15,7 @@ readme = "README.md"
 license = { text = "MIT" }
 
 [project.scripts]
-pasteurize = "pasteurize.cli:app"
+copychat = "copychat.cli:app"
 
 [build-system]
 requires = ["hatchling"]

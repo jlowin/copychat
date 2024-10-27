@@ -1,4 +1,4 @@
-from pasteurize.patterns import (
+from copychat.patterns import (
     DEFAULT_EXTENSIONS,
     EXCLUDED_DIRS,
     EXCLUDED_PATTERNS,
