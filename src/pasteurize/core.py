@@ -2,8 +2,17 @@ from pathlib import Path
 from typing import Optional, Sequence
 import pathspec
 import sys
+import subprocess
+from enum import Enum
 
 from .patterns import DEFAULT_EXTENSIONS, EXCLUDED_DIRS, EXCLUDED_PATTERNS
+
+
+class DiffMode(Enum):
+    FULL = "full"  # All files as-is
+    FULL_WITH_DIFF = "full-with-diff"  # All files with diff markers
+    CHANGED_WITH_DIFF = "changed-with-diff"  # Only changed files with diff markers
+    DIFF_ONLY = "diff-only"  # Only the diff chunks
 
 
 def find_gitignore(start_path: Path) -> Optional[Path]:
@@ -62,23 +71,56 @@ def get_gitignore_spec(
     return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
 
+def get_git_diff(path: Path, verbose: bool = False) -> str:
+    """Get git diff for the given path."""
+    try:
+        result = subprocess.run(
+            ["git", "diff", str(path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        if verbose:
+            print(f"Error getting git diff: {e}", file=sys.stderr)
+        return ""
+
+
+def get_file_content(
+    path: Path, diff_mode: DiffMode, verbose: bool = False
+) -> Optional[str]:
+    """
+    Get file content based on diff mode.
+    Returns None if file should be skipped.
+    """
+    if diff_mode == DiffMode.FULL:
+        return path.read_text()
+
+    diff = get_git_diff(path, verbose)
+
+    if not diff and diff_mode in (DiffMode.CHANGED_WITH_DIFF, DiffMode.DIFF_ONLY):
+        return None
+
+    if diff_mode == DiffMode.DIFF_ONLY:
+        return diff
+
+    # For FULL_WITH_DIFF and CHANGED_WITH_DIFF, we return the file content
+    # with diff markers if there are changes
+    content = path.read_text()
+    return f"{content}\n\nDiff:\n{diff}" if diff else content
+
+
 def scan_directory(
     path: Path,
     include: Optional[Sequence[str]] = None,
     extra_patterns: Optional[list[str]] = None,
+    diff_mode: DiffMode = DiffMode.FULL,
     verbose: bool = False,
-) -> list[Path]:
+) -> dict[Path, str]:
     """
     Scan directory for relevant files.
-
-    Args:
-        path: Directory to scan (can be relative or absolute)
-        include: File extensions to include (without dots)
-        extra_patterns: Additional gitignore-style patterns to exclude
-        verbose: Whether to print debug information
-
-    Returns:
-        List of paths to relevant files
+    Returns a dict mapping paths to their content based on diff_mode.
     """
     # Convert to absolute path first
     abs_path = path.absolute()
@@ -98,7 +140,7 @@ def scan_directory(
     # Get combined gitignore and default exclusions
     spec = get_gitignore_spec(abs_path, extra_patterns, verbose)
 
-    result = []
+    result = {}
     processed = 0
     skipped = 0
 
@@ -136,11 +178,13 @@ def scan_directory(
             skipped += 1
             continue
 
-        result.append(file_path)
+        content = get_file_content(file_path, diff_mode, verbose)
+        if content is not None:
+            result[file_path] = content
 
     if verbose:
         print(
             f"\nScan complete: processed {processed} files, found {len(result)}, skipped {skipped}",
             file=sys.stderr,
         )
-    return sorted(result)
+    return result

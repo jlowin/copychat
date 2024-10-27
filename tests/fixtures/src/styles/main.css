@@ -1,0 +1,10 @@
+.app {
+  margin: 0;
+  padding: 20px;
+  font-family: sans-serif;
+}
+
+.header {
+  color: #333;
+  font-size: 24px;
+}

@@ -72,18 +72,20 @@ def format_file(file_path: Path, root_path: Path, verbose: bool = False) -> str:
         # Add line numbers to content
         numbered_lines = []
         for i, line in enumerate(content.splitlines(), 1):
-            numbered_lines.append(f"{i:4d} │ {line}")
+            numbered_lines.append(f"{i}|{line}")
         numbered_content = "\n".join(numbered_lines)
 
         if verbose:
             print(f"Successfully formatted: {rel_path}", file=sys.stderr)
 
-        return f"<file {attrs_str}>\n{numbered_content}\n</file>\n"
+        return f"""<file {attrs_str}>
+{numbered_content}
+</file>"""
 
     except Exception as e:
         if verbose:
             print(f"Error formatting {file_path}: {e}", file=sys.stderr)
-        return f"<!-- Error processing {file_path}: {str(e)} -->\n"
+        return f"<!-- Error processing {file_path}: {str(e)} -->"
 
 
 def create_header(files: list[Path], root_path: Path) -> str:
