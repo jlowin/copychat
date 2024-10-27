@@ -21,10 +21,6 @@ copychat = "copychat.cli:app"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.rye]
-managed = true
-dev-dependencies = ["pytest>=8.0.0", "black>=24.2.0", "ruff>=0.2.1"]
-
 [tool.ruff]
 line-length = 88
 target-version = "py39"
@@ -32,3 +28,10 @@ target-version = "py39"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+]

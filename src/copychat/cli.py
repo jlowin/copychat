@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Optional, List
 from rich.console import Console
 import pyperclip
-import sys
 
 from .core import scan_directory, DiffMode  # Import DiffMode from core
 from .patterns import DEFAULT_EXTENSIONS
@@ -45,11 +44,11 @@ def main(
         "-o",
         help="Write output to file",
     ),
-    copy: bool = typer.Option(
+    print_output: bool = typer.Option(
         False,
-        "--copy",
-        "-c",
-        help="Copy output to clipboard",
+        "--print",
+        "-p",
+        help="Print output to screen",
     ),
     include: Optional[str] = typer.Option(
         None,
@@ -95,10 +94,10 @@ def main(
             all_files.update(files)
 
         if not all_files:
-            console.print("[yellow]No matching files found[/]", file=sys.stderr)
-            raise typer.Exit(0)
+            error_console.print("[yellow]No matching files found[/]")  # Keep using Rich
+            raise typer.Exit(1)
 
-        # Use the XML formatter instead of simple formatting
+        # Format files
         result = format_files_xml(list(all_files.keys()), verbose=verbose)
 
         # Handle outputs
@@ -106,16 +105,16 @@ def main(
             outfile.write_text(result)
             error_console.print(f"Output written to [green]{outfile}[/]")
 
-        if copy:
-            pyperclip.copy(result)
-            token_count = estimate_tokens(result)
-            error_console.print(
-                f"[green]Copied[/] {len(all_files)} files to clipboard "
-                f"({len(result):,} chars, ~{token_count:,} tokens)"
-            )
+        # Always copy to clipboard by default
+        pyperclip.copy(result)
+        token_count = estimate_tokens(result)
+        error_console.print(
+            f"[green]Copied[/] {len(all_files)} files to clipboard "
+            f"({len(result):,} chars, ~{token_count:,} tokens)"
+        )
 
-        # Always print to stdout unless only copying
-        if not (copy and not outfile):
+        # Print to stdout only if explicitly requested
+        if print_output:
             print(result)
 
     except Exception as e:
