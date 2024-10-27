@@ -5,7 +5,7 @@ from rich.console import Console
 import pyperclip
 from enum import Enum
 
-from .core import scan_directory, DiffMode
+from .core import scan_directory, DiffMode, get_file_content
 from .format import (
     estimate_tokens,
     format_files as format_files_xml,
@@ -38,6 +38,8 @@ def parse_source(source: str) -> tuple[SourceType, str]:
 def diff_mode_callback(value: str) -> DiffMode:
     """Convert string value to DiffMode enum."""
     try:
+        if isinstance(value, DiffMode):
+            return value
         return DiffMode(value)
     except ValueError:
         valid_values = [mode.value for mode in DiffMode]
@@ -94,8 +96,8 @@ def main(
         "-x",
         help="Glob patterns to exclude",
     ),
-    diff_mode: DiffMode = typer.Option(
-        DiffMode.FULL.value,
+    diff_mode: str = typer.Option(
+        "full",  # Pass the string value instead of enum
         "--diff-mode",
         "-d",
         help="How to handle git diffs",
@@ -127,7 +129,8 @@ def main(
 
         # Handle file vs directory source
         if source_dir.is_file():
-            all_files = {source_dir: None}  # Use None as placeholder for git info
+            content = get_file_content(source_dir, diff_mode)
+            all_files = {source_dir: content} if content is not None else {}
         else:
             # For directories, scan all paths
             if not paths:
@@ -138,11 +141,13 @@ def main(
             for path in paths:
                 target = source_dir / path if source_dir != Path(".") else Path(path)
                 if target.is_file():
-                    all_files[target] = None
+                    content = get_file_content(target, diff_mode)
+                    if content is not None:
+                        all_files[target] = content
                 else:
                     files = scan_directory(
                         target,
-                        include=include,
+                        include=include.split(",") if include else None,
                         exclude_patterns=exclude,
                         diff_mode=diff_mode,
                     )
@@ -152,8 +157,10 @@ def main(
             error_console.print("[yellow]No matching files found[/]")
             raise typer.Exit(1)
 
-        # Format files
-        result = format_files_xml(list(all_files.keys()))
+        # Format files - pass both paths and content
+        result = format_files_xml(
+            [(path, content) for path, content in all_files.items()]
+        )
 
         # Handle outputs
         if outfile:

@@ -54,13 +54,26 @@ def get_gitignore_spec(
 def get_git_diff(path: Path) -> str:
     """Get git diff for the given path."""
     try:
+        # First check if file is tracked by git
         result = subprocess.run(
-            ["git", "diff", str(path)],
+            ["git", "ls-files", "--error-unmatch", str(path)],
             capture_output=True,
             text=True,
-            check=True,
+            check=False,  # Don't raise error for untracked files
         )
-        return result.stdout
+        if result.returncode != 0:
+            return ""  # File is not tracked by git
+
+        # Get the diff for tracked files
+        result = subprocess.run(
+            ["git", "diff", "--exit-code", str(path)],
+            capture_output=True,
+            text=True,
+            check=False,  # Don't raise error for no changes
+        )
+        # exit-code 0 means no changes, 1 means changes present
+        return result.stdout if result.returncode == 1 else ""
+
     except subprocess.CalledProcessError:
         return ""
 
@@ -70,18 +83,21 @@ def get_file_content(path: Path, diff_mode: DiffMode) -> Optional[str]:
     if not path.is_file():
         return None
 
-    if diff_mode == DiffMode.FULL:
-        return path.read_text()
-
-    diff = get_git_diff(path)
-    if not diff and diff_mode in (DiffMode.CHANGED_WITH_DIFF, DiffMode.DIFF_ONLY):
-        return None
-
-    if diff_mode == DiffMode.DIFF_ONLY:
-        return diff
-
+    # Get content and diff
     content = path.read_text()
-    return f"{content}\n\n# Git Diff:\n{diff}" if diff else content
+    diff = get_git_diff(path)
+
+    # Handle different modes
+    if diff_mode == DiffMode.FULL:
+        return content
+    elif diff_mode == DiffMode.FULL_WITH_DIFF:
+        return f"{content}\n\n# Git Diff:\n{diff}" if diff else content
+    elif diff_mode == DiffMode.CHANGED_WITH_DIFF:
+        return f"{content}\n\n# Git Diff:\n{diff}" if diff else None
+    elif diff_mode == DiffMode.DIFF_ONLY:
+        return diff if diff else None
+    else:
+        return None  # Shouldn't reach here, but makes mypy happy
 
 
 def scan_directory(
@@ -89,13 +105,14 @@ def scan_directory(
     include: Optional[list[str]] = None,
     exclude_patterns: Optional[list[str]] = None,
     diff_mode: DiffMode = DiffMode.FULL,
-) -> dict[Path, Optional[str]]:
+) -> dict[Path, str]:
     """Scan directory for files to process."""
     if path.is_file():
         # For single files, just check if it matches filters
         if include and path.suffix.lstrip(".") not in include:
             return {}
-        return {path: None}
+        content = get_file_content(path, diff_mode)
+        return {path: content} if content is not None else {}
 
     # Convert to absolute path first
     abs_path = path.absolute()
@@ -131,6 +148,7 @@ def scan_directory(
         if ext not in include_set:
             continue
 
+        # Get content based on diff mode
         content = get_file_content(file_path, diff_mode)
         if content is not None:
             result[file_path] = content

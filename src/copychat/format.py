@@ -46,12 +46,13 @@ def guess_language(file_path: Path) -> Optional[str]:
     return language_map.get(ext)
 
 
-def format_file(
-    file_path: Path, root_path: Path, add_line_numbers: bool = False
-) -> str:
-    """Format a single file as XML-style markdown with line numbers."""
+def format_file(file_path: Path, root_path: Path, content: Optional[str] = None) -> str:
+    """Format a single file as XML-style markdown."""
     try:
-        content = file_path.read_text()
+        # Use provided content or read from file
+        if content is None:
+            content = file_path.read_text()
+
         # Use string paths for comparison to handle symlinks and different path formats
         file_str = str(file_path.absolute())
         root_str = str(root_path)
@@ -66,13 +67,6 @@ def format_file(
             tag_attrs.append(f'language="{language}"')
 
         attrs_str = " ".join(tag_attrs)
-
-        # Add line numbers to content
-        if add_line_numbers:
-            numbered_lines = []
-            for i, line in enumerate(content.splitlines(), 1):
-                numbered_lines.append(f"{i}| {line}")
-            content = "\n".join(numbered_lines)
 
         return f"""<file {attrs_str}>
 {content}
@@ -110,21 +104,26 @@ def estimate_tokens(text: str) -> int:
         return len(text) // 4  # Rough estimate: ~4 chars per token
 
 
-def format_files(files: list[Path]) -> str:
-    """Format files into markdown with XML-style tags."""
+def format_files(files: list[tuple[Path, str]]) -> str:
+    """Format files into markdown with XML-style tags.
+
+    Args:
+        files: List of (path, content) tuples to format
+    """
     if not files:
         return "<!-- No files found matching criteria -->\n"
 
     # Find common root path using os.path.commonpath
-    str_paths = [str(f.absolute()) for f in files]
+    paths = [f[0] for f in files]
+    str_paths = [str(f.absolute()) for f in paths]
     root_path = Path(commonpath(str_paths))
 
     # Create header
-    result = [create_header(files, root_path)]
+    result = [create_header(paths, root_path)]
 
     # Format each file
-    for file_path in files:
-        result.append(format_file(file_path, root_path))
+    for file_path, content in files:
+        result.append(format_file(file_path, root_path, content))
 
     final_result = "\n".join(result)
     char_count = len(final_result)
