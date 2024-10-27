@@ -46,7 +46,9 @@ def guess_language(file_path: Path) -> Optional[str]:
     return language_map.get(ext)
 
 
-def format_file(file_path: Path, root_path: Path) -> str:
+def format_file(
+    file_path: Path, root_path: Path, add_line_numbers: bool = False
+) -> str:
     """Format a single file as XML-style markdown with line numbers."""
     try:
         content = file_path.read_text()
@@ -66,13 +68,14 @@ def format_file(file_path: Path, root_path: Path) -> str:
         attrs_str = " ".join(tag_attrs)
 
         # Add line numbers to content
-        numbered_lines = []
-        for i, line in enumerate(content.splitlines(), 1):
-            numbered_lines.append(f"{i}|{line}")
-        numbered_content = "\n".join(numbered_lines)
+        if add_line_numbers:
+            numbered_lines = []
+            for i, line in enumerate(content.splitlines(), 1):
+                numbered_lines.append(f"{i}| {line}")
+            content = "\n".join(numbered_lines)
 
         return f"""<file {attrs_str}>
-{numbered_content}
+{content}
 </file>"""
 
     except Exception as e:
