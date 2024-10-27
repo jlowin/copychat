@@ -155,9 +155,15 @@ def format_files(files: list[Path], verbose: bool = False) -> str:
     char_count = len(final_result)
     token_estimate = estimate_tokens(final_result)
 
+    # Add character and token count to header
+    final_result = final_result.replace(
+        "-->",
+        f"\nCharacters: {char_count:,}\nEstimated tokens: {token_estimate:,}\n-->",
+    )
+
     if verbose:
         print(
-            f"Final output: {char_count} characters, ~{token_estimate} tokens",
+            f"Final output: {char_count:,} characters, ~{token_estimate:,} tokens",
             file=sys.stderr,
         )
 
