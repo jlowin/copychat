@@ -8,7 +8,6 @@ def test_basic_scan(sample_project):
     files = scan_directory(
         sample_project,
         include=["py", "js", "css"],
-        verbose=True,
     )
 
     # Check we found the expected file types

@@ -95,17 +95,11 @@ def main(
         help="Glob patterns to exclude",
     ),
     diff_mode: DiffMode = typer.Option(
-        DiffMode.FULL.value,  # Use the string value as default
+        DiffMode.FULL.value,
         "--diff-mode",
         "-d",
         help="How to handle git diffs",
-        callback=diff_mode_callback,  # Convert string to enum
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Show verbose output",
+        callback=diff_mode_callback,
     ),
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
@@ -119,7 +113,7 @@ def main(
         if source_type == SourceType.GITHUB:
             try:
                 github_source = GitHubSource(source_loc)
-                source_dir = github_source.fetch(verbose=verbose)
+                source_dir = github_source.fetch()
             except Exception as e:
                 error_console.print(
                     f"[red]Error fetching GitHub repository:[/] {str(e)}"
@@ -151,7 +145,6 @@ def main(
                         include=include,
                         exclude_patterns=exclude,
                         diff_mode=diff_mode,
-                        verbose=verbose,
                     )
                     all_files.update(files)
 
@@ -160,7 +153,7 @@ def main(
             raise typer.Exit(1)
 
         # Format files
-        result = format_files_xml(list(all_files.keys()), verbose=verbose)
+        result = format_files_xml(list(all_files.keys()))
 
         # Handle outputs
         if outfile:

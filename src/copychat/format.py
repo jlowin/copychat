@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import Optional
-import sys
 from os.path import commonpath
 from datetime import datetime
 import tiktoken
@@ -47,11 +46,8 @@ def guess_language(file_path: Path) -> Optional[str]:
     return language_map.get(ext)
 
 
-def format_file(file_path: Path, root_path: Path, verbose: bool = False) -> str:
+def format_file(file_path: Path, root_path: Path) -> str:
     """Format a single file as XML-style markdown with line numbers."""
-    if verbose:
-        print(f"Formatting file: {file_path}", file=sys.stderr)
-
     try:
         content = file_path.read_text()
         # Use string paths for comparison to handle symlinks and different path formats
@@ -75,16 +71,11 @@ def format_file(file_path: Path, root_path: Path, verbose: bool = False) -> str:
             numbered_lines.append(f"{i}|{line}")
         numbered_content = "\n".join(numbered_lines)
 
-        if verbose:
-            print(f"Successfully formatted: {rel_path}", file=sys.stderr)
-
         return f"""<file {attrs_str}>
 {numbered_content}
 </file>"""
 
     except Exception as e:
-        if verbose:
-            print(f"Error formatting {file_path}: {e}", file=sys.stderr)
         return f"<!-- Error processing {file_path}: {str(e)} -->"
 
 
@@ -116,40 +107,21 @@ def estimate_tokens(text: str) -> int:
         return len(text) // 4  # Rough estimate: ~4 chars per token
 
 
-def format_files(files: list[Path], verbose: bool = False) -> str:
-    """
-    Format files into markdown with XML-style tags.
-
-    Args:
-        files: List of file paths to format
-        verbose: Whether to print debug information
-
-    Returns:
-        Formatted markdown string
-    """
-    if verbose:
-        print(f"\nStarting to format {len(files)} files...", file=sys.stderr)
-
+def format_files(files: list[Path]) -> str:
+    """Format files into markdown with XML-style tags."""
     if not files:
         return "<!-- No files found matching criteria -->\n"
 
     # Find common root path using os.path.commonpath
     str_paths = [str(f.absolute()) for f in files]
     root_path = Path(commonpath(str_paths))
-    if verbose:
-        print(f"Using root path: {root_path}", file=sys.stderr)
 
     # Create header
     result = [create_header(files, root_path)]
 
     # Format each file
-    for i, file_path in enumerate(files, 1):
-        if verbose and i % 10 == 0:
-            print(f"Formatted {i}/{len(files)} files...", file=sys.stderr)
-        result.append(format_file(file_path, root_path, verbose))
-
-    if verbose:
-        print("Formatting complete, joining results...", file=sys.stderr)
+    for file_path in files:
+        result.append(format_file(file_path, root_path))
 
     final_result = "\n".join(result)
     char_count = len(final_result)
@@ -160,11 +132,5 @@ def format_files(files: list[Path], verbose: bool = False) -> str:
         "-->",
         f"\nCharacters: {char_count:,}\nEstimated tokens: {token_estimate:,}\n-->",
     )
-
-    if verbose:
-        print(
-            f"Final output: {char_count:,} characters, ~{token_estimate:,} tokens",
-            file=sys.stderr,
-        )
 
     return final_result
