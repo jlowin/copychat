@@ -110,3 +110,32 @@ def test_cli_multiple_outputs(tmp_path, monkeypatch):
     assert "test.py" in out_file.read_text()
     # Check stdout
     assert "test.py" in result.stdout
+
+
+def test_cli_glob_argument(tmp_path, monkeypatch):
+    """Test that glob patterns in arguments work."""
+    # Create test files
+    (tmp_path / "test1.py").write_text("print('test1')")
+    (tmp_path / "test2.py").write_text("print('test2')")
+    (tmp_path / "test.js").write_text("console.log('test')")
+
+    # Change to temp directory for test
+    monkeypatch.chdir(tmp_path)
+
+    # Mock pyperclip.copy
+    copied_content = []
+
+    def mock_copy(text):
+        copied_content.append(text)
+
+    monkeypatch.setattr(pyperclip, "copy", mock_copy)
+
+    # Run CLI with glob pattern
+    result = runner.invoke(app, ["*.py"])
+
+    assert result.exit_code == 0
+    assert "Found 2 matching files" in result.stderr
+    assert len(copied_content) == 1
+    assert "test1.py" in copied_content[0]
+    assert "test2.py" in copied_content[0]
+    assert "test.js" not in copied_content[0]

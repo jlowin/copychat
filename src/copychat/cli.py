@@ -5,7 +5,13 @@ from rich.console import Console
 import pyperclip
 from enum import Enum
 
-from .core import scan_directory, DiffMode, get_file_content
+from .core import (
+    is_glob_pattern,
+    resolve_paths,
+    scan_directory,
+    DiffMode,
+    get_file_content,
+)
 from .format import (
     estimate_tokens,
     format_files as format_files_xml,
@@ -103,6 +109,11 @@ def main(
         help="How to handle git diffs",
         callback=diff_mode_callback,
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        help="Debug mode for development",
+    ),
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
     try:
@@ -117,6 +128,8 @@ def main(
                 github_source = GitHubSource(source_loc)
                 source_dir = github_source.fetch()
             except Exception as e:
+                if debug:
+                    raise
                 error_console.print(
                     f"[red]Error fetching GitHub repository:[/] {str(e)}"
                 )
@@ -136,10 +149,22 @@ def main(
             if not paths:
                 paths = ["."]
 
-            # Scan all paths within the source
-            all_files = {}
+            # Handle glob patterns in command line arguments
+            resolved_paths = []
             for path in paths:
-                target = source_dir / path if source_dir != Path(".") else Path(path)
+                if is_glob_pattern(path):
+                    # Use resolve_paths for glob patterns
+                    resolved = resolve_paths([path], base_path=source_dir)
+                    resolved_paths.extend(resolved)
+                else:
+                    # Keep regular paths as-is
+                    resolved_paths.append(
+                        source_dir / path if source_dir != Path(".") else Path(path)
+                    )
+
+            # Scan all resolved paths
+            all_files = {}
+            for target in resolved_paths:
                 if target.is_file():
                     content = get_file_content(target, diff_mode)
                     if content is not None:
@@ -154,13 +179,14 @@ def main(
                     all_files.update(files)
 
         if not all_files:
-            error_console.print("[yellow]No matching files found[/]")
-            raise typer.Exit(1)
+            error_console.print("Found [red]0[/] matching files")
+            return  # Exit early without copying anything
 
         # Format files - pass both paths and content
         result = format_files_xml(
             [(path, content) for path, content in all_files.items()]
         )
+        error_console.print(f"Found [green]{len(all_files)}[/] matching files")
 
         # Handle outputs
         if outfile:
@@ -185,7 +211,7 @@ def main(
         pyperclip.copy(result)
         token_count = estimate_tokens(result)
         error_console.print(
-            f"[green]{'Appended' if append else 'Copied'}[/] {len(all_files)} files to clipboard "
+            f"{'Appended' if append else 'Copied'} to clipboard "
             f"({len(result):,} chars, ~{token_count:,} tokens)"
         )
 
@@ -194,5 +220,7 @@ def main(
             print(result)
 
     except Exception as e:
+        if debug:
+            raise
         error_console.print(f"[red]Error:[/] {str(e)}")
         raise typer.Exit(1)

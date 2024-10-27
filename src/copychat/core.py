@@ -3,6 +3,8 @@ from typing import Optional
 import pathspec
 import subprocess
 from enum import Enum
+from glob import glob
+import os
 
 from .patterns import DEFAULT_EXTENSIONS, EXCLUDED_DIRS, EXCLUDED_PATTERNS
 
@@ -12,6 +14,26 @@ class DiffMode(Enum):
     FULL_WITH_DIFF = "full-with-diff"  # All files with diff markers
     CHANGED_WITH_DIFF = "changed-with-diff"  # Only changed files with diff markers
     DIFF_ONLY = "diff-only"  # Only the diff chunks
+
+
+def is_glob_pattern(path: str) -> bool:
+    """Check if a path contains glob patterns."""
+    return "*" in path
+
+
+def resolve_paths(paths: list[str], base_path: Path = Path(".")) -> list[Path]:
+    """Resolve a mix of glob patterns and regular paths."""
+    resolved = []
+    for path in paths:
+        if is_glob_pattern(path):
+            # Handle glob patterns relative to base_path
+            full_pattern = os.path.join(str(base_path), path)
+            matches = [Path(p) for p in glob(full_pattern, recursive=True)]
+            resolved.extend(matches)
+        else:
+            # Handle regular paths
+            resolved.append(base_path / path)
+    return resolved
 
 
 def find_gitignore(start_path: Path) -> Optional[Path]:
@@ -107,50 +129,62 @@ def scan_directory(
     diff_mode: DiffMode = DiffMode.FULL,
 ) -> dict[Path, str]:
     """Scan directory for files to process."""
-    if path.is_file():
-        # For single files, just check if it matches filters
-        if include and path.suffix.lstrip(".") not in include:
-            return {}
-        content = get_file_content(path, diff_mode)
-        return {path: content} if content is not None else {}
-
-    # Convert to absolute path first
-    abs_path = path.absolute()
-
-    if not abs_path.is_dir():
-        raise ValueError(f"Path {abs_path} is not a directory")
-
-    # Use provided extensions or defaults
-    include_set = {f".{ext.lstrip('.')}" for ext in (include or DEFAULT_EXTENSIONS)}
-
-    # Get combined gitignore and default exclusions
-    spec = get_gitignore_spec(abs_path, exclude_patterns)
+    # Convert string paths to Path objects and handle globs
+    if isinstance(path, str):
+        if is_glob_pattern(path):
+            paths = resolve_paths([path])
+        else:
+            paths = [Path(path)]
+    else:
+        paths = [path]
 
     result = {}
 
-    for file_path in abs_path.rglob("*"):
-        # Skip non-files
-        if not file_path.is_file():
+    for current_path in paths:
+        if current_path.is_file():
+            # For single files, just check if it matches filters
+            if include and current_path.suffix.lstrip(".") not in include:
+                continue
+            content = get_file_content(current_path, diff_mode)
+            if content is not None:
+                result[current_path] = content
             continue
 
-        # Get relative path for pattern matching
-        try:
-            rel_path = file_path.relative_to(abs_path)
-        except ValueError:
+        # Convert to absolute path
+        abs_path = current_path.resolve()
+        if not abs_path.exists():
             continue
 
-        # Skip excluded patterns
-        if spec.match_file(str(rel_path)):
-            continue
+        # Use provided extensions or defaults
+        include_set = {f".{ext.lstrip('.')}" for ext in (include or DEFAULT_EXTENSIONS)}
 
-        # Apply extension filters
-        ext = file_path.suffix.lower()
-        if ext not in include_set:
-            continue
+        # Get combined gitignore and default exclusions
+        spec = get_gitignore_spec(abs_path, exclude_patterns)
 
-        # Get content based on diff mode
-        content = get_file_content(file_path, diff_mode)
-        if content is not None:
-            result[file_path] = content
+        for file_path in abs_path.rglob("*"):
+            # Skip non-files
+            if not file_path.is_file():
+                continue
+
+            # Get relative path for pattern matching
+            try:
+                rel_path = file_path.relative_to(abs_path)
+            except ValueError:
+                # If no common path, skip this file
+                continue
+
+            # Skip excluded patterns
+            if spec.match_file(str(rel_path)):
+                continue
+
+            # Apply extension filters
+            ext = file_path.suffix.lower()
+            if ext not in include_set:
+                continue
+
+            # Get content based on diff mode
+            content = get_file_content(file_path, diff_mode)
+            if content is not None:
+                result[file_path] = content
 
     return result
