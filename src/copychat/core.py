@@ -210,7 +210,6 @@ def scan_directory(
 
         # Get gitignore spec once per directory
         spec = get_gitignore_spec(abs_path, exclude_patterns)
-        abs_path_str = str(abs_path)  # Cache string conversion
 
         # Use os.walk for better performance than rglob
         for root, _, files in os.walk(abs_path):
