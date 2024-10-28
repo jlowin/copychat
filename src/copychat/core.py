@@ -22,11 +22,25 @@ def is_glob_pattern(path: str) -> bool:
 def resolve_paths(paths: list[str], base_path: Path = Path(".")) -> list[Path]:
     """Resolve a mix of glob patterns and regular paths."""
     resolved = []
+    base_path = base_path.resolve()
+
+    # Get gitignore spec once for all paths
+    spec = get_gitignore_spec(base_path)
+
     for path in paths:
         if is_glob_pattern(path):
-            # Use Path.rglob() for better handling of recursive glob patterns
-            matches = list(base_path.rglob(path))
-            resolved.extend(matches)
+            matches = list(base_path.glob(path))
+            # Filter matches through gitignore and base path checks
+            for match in matches:
+                try:
+                    # Check if under base path
+                    rel_path = match.relative_to(base_path)
+                    # Skip if matches gitignore patterns
+                    if spec.match_file(str(rel_path)):
+                        continue
+                    resolved.append(match)
+                except ValueError:
+                    continue
         else:
             resolved.append(base_path / path)
     return resolved
@@ -96,26 +110,62 @@ def get_git_diff(path: Path) -> str:
         return ""
 
 
-def get_file_content(path: Path, diff_mode: DiffMode) -> Optional[str]:
+def get_changed_files() -> set[Path]:
+    """Get set of files that have changes according to git."""
+    try:
+        # Get both staged and unstaged changes
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        changed = set()
+        for line in result.stdout.splitlines():
+            if line.strip() and len(line) > 3:
+                # Extract filename from git status output
+                filepath = line[3:].strip().split(" -> ")[-1]
+                changed.add(Path(filepath))
+        return changed
+    except subprocess.CalledProcessError:
+        return set()
+
+
+def get_file_content(
+    path: Path, diff_mode: DiffMode, changed_files: Optional[set[Path]] = None
+) -> Optional[str]:
     """Get file content based on diff mode."""
     if not path.is_file():
         return None
 
-    # Get content and diff
+    # Get content
     content = path.read_text()
-    diff = get_git_diff(path)
+
+    # Only get diff if needed based on mode
+    if diff_mode in (DiffMode.FULL, DiffMode.DIFF_ONLY):
+        return content if diff_mode == DiffMode.FULL else None
+
+    # For diff modes, first check if file is in changed set
+    if changed_files is not None:
+        has_changes = path in changed_files
+    else:
+        # Fallback to individual diff check
+        diff = get_git_diff(path)
+        has_changes = bool(diff)
 
     # Handle different modes
-    if diff_mode == DiffMode.FULL:
-        return content
+    if diff_mode == DiffMode.CHANGED_WITH_DIFF:
+        if not has_changes:
+            return None
+        diff = get_git_diff(path) if changed_files is not None else diff
+        return f"{content}\n\n# Git Diff:\n{diff}"
     elif diff_mode == DiffMode.FULL_WITH_DIFF:
-        return f"{content}\n\n# Git Diff:\n{diff}" if diff else content
-    elif diff_mode == DiffMode.CHANGED_WITH_DIFF:
-        return f"{content}\n\n# Git Diff:\n{diff}" if diff else None
-    elif diff_mode == DiffMode.DIFF_ONLY:
-        return diff if diff else None
-    else:
-        return None  # Shouldn't reach here, but makes mypy happy
+        if not has_changes:
+            return content
+        diff = get_git_diff(path) if changed_files is not None else diff
+        return f"{content}\n\n# Git Diff:\n{diff}"
+
+    return None
 
 
 def scan_directory(
@@ -125,6 +175,9 @@ def scan_directory(
     diff_mode: DiffMode = DiffMode.FULL,
 ) -> dict[Path, str]:
     """Scan directory for files to process."""
+    # Get changed files upfront if we're using a diff mode
+    changed_files = get_changed_files() if diff_mode != DiffMode.FULL else None
+
     # Convert string paths to Path objects and handle globs
     if isinstance(path, str):
         if is_glob_pattern(path):
@@ -141,7 +194,7 @@ def scan_directory(
             # For single files, just check if it matches filters
             if include and current_path.suffix.lstrip(".") not in include:
                 continue
-            content = get_file_content(current_path, diff_mode)
+            content = get_file_content(current_path, diff_mode, changed_files)
             if content is not None:
                 result[current_path] = content
             continue
@@ -179,7 +232,7 @@ def scan_directory(
                 continue
 
             # Get content based on diff mode
-            content = get_file_content(file_path, diff_mode)
+            content = get_file_content(file_path, diff_mode, changed_files)
             if content is not None:
                 result[file_path] = content
 
