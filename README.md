@@ -20,8 +20,12 @@ pip install copychat
 ```
 
 ## Quick Start
+Collect, format, and copy all source code in the current directory (and subdirectories) to the clipboard:
+```bash
+copychat
+```
 
-Copy all Python files from current directory to clipboard:
+Copy only Python files to clipboard:
 ```bash
 copychat -i py
 ```
