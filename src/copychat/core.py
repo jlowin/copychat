@@ -3,6 +3,7 @@ from typing import Optional
 import pathspec
 import subprocess
 from enum import Enum
+import os
 
 from .patterns import DEFAULT_EXTENSIONS, EXCLUDED_DIRS, EXCLUDED_PATTERNS
 
@@ -189,6 +190,9 @@ def scan_directory(
 
     result = {}
 
+    # Pre-compute extension set
+    include_set = {f".{ext.lstrip('.')}" for ext in (include or DEFAULT_EXTENSIONS)}
+
     for current_path in paths:
         if current_path.is_file():
             # For single files, just check if it matches filters
@@ -199,42 +203,53 @@ def scan_directory(
                 result[current_path] = content
             continue
 
-        # Convert to absolute path
+        # Convert to absolute path once
         abs_path = current_path.resolve()
         if not abs_path.exists():
             continue
 
-        # Use provided extensions or defaults
-        include_set = {f".{ext.lstrip('.')}" for ext in (include or DEFAULT_EXTENSIONS)}
-
-        # Get combined gitignore and default exclusions
+        # Get gitignore spec once per directory
         spec = get_gitignore_spec(abs_path, exclude_patterns)
+        abs_path_str = str(abs_path)  # Cache string conversion
 
-        for file_path in abs_path.rglob("*"):
-            # Skip non-files
-            if not file_path.is_file():
-                continue
+        # Use os.walk for better performance than rglob
+        for root, _, files in os.walk(abs_path):
+            root_path = Path(root)
 
-            # Get relative path for pattern matching
+            # Get relative path once per directory
             try:
-                rel_path = file_path.relative_to(abs_path)
+                rel_root = str(root_path.relative_to(abs_path))
+                if rel_root == ".":
+                    rel_root = ""
             except ValueError:
-                # If no common path, skip this file
                 continue
 
-            # Skip excluded patterns
-            if spec.match_file(str(rel_path)):
+            # Check if directory should be skipped
+            if rel_root and spec.match_file(rel_root + "/"):
                 continue
 
-            # Apply extension filters
-            ext = file_path.suffix.lower()
-            if ext not in include_set:
-                continue
+            for filename in files:
+                # Quick extension check before more expensive operations
+                ext = Path(filename).suffix.lower()
+                if ext not in include_set:
+                    continue
 
-            # Get content based on diff mode
-            content = get_file_content(file_path, diff_mode, changed_files)
-            if content is not None:
-                result[file_path] = content
+                # Build relative path string directly
+                rel_path_str = (
+                    os.path.join(rel_root, filename) if rel_root else filename
+                )
+
+                # Check gitignore patterns
+                if spec.match_file(rel_path_str):
+                    continue
+
+                # Only create Path object if file passes all filters
+                file_path = root_path / filename
+
+                # Get content based on diff mode
+                content = get_file_content(file_path, diff_mode, changed_files)
+                if content is not None:
+                    result[file_path] = content
 
     return result
 
