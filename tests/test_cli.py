@@ -1,8 +1,15 @@
 from typer.testing import CliRunner
 from copychat.cli import app
 import pyperclip
+import re
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
 
 
 def test_cli_default_behavior(tmp_path, monkeypatch):
@@ -77,7 +84,9 @@ def test_cli_no_files_found(tmp_path):
     result = runner.invoke(app, [str(tmp_path), "--include", "py"])
 
     assert result.exit_code == 1
-    assert "Found 0 matching files" in result.output.strip()
+    assert "Found 0 matching files" in strip_ansi(
+        result.stderr.strip()
+    )  # Change output to stderr
 
 
 def test_cli_multiple_outputs(tmp_path, monkeypatch):
@@ -133,9 +142,7 @@ def test_cli_glob_argument(tmp_path, monkeypatch):
     result = runner.invoke(app, ["*.py"], catch_exceptions=False)
 
     assert result.exit_code == 0
-    assert (
-        "Found 2 matching files" in result.output
-    )  # Use result.output instead of result.stderr
+    assert "Found 2 matching files" in strip_ansi(result.stderr)  # Add strip_ansi here
     assert len(copied_content) == 1
     assert "test1.py" in copied_content[0]
     assert "test2.py" in copied_content[0]

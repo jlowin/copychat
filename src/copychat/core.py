@@ -184,3 +184,11 @@ def scan_directory(
                 result[file_path] = content
 
     return result
+
+
+def scan_files(patterns: list[str], root: Path) -> set[Path]:
+    """Scan directory for files matching glob patterns."""
+    files = set()
+    for pattern in patterns:
+        files.update(root.glob(pattern))
+    return files

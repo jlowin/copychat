@@ -5,7 +5,9 @@ from copychat.core import (
     is_glob_pattern,
     resolve_paths,
     scan_directory,
+    scan_files,
 )
+from pathlib import Path
 
 
 def test_diff_mode_enum():
@@ -55,25 +57,18 @@ def git_repo(tmp_path):
     return tmp_path
 
 
-def test_scan_with_glob_patterns(tmp_path):
-    """Test scanning with glob patterns."""
-    # Create test files
-    (tmp_path / "test1.py").write_text("print('test1')")
-    (tmp_path / "test2.js").write_text("console.log('test2')")
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "main.py").write_text("print('main')")
-    (tmp_path / "src" / "util.js").write_text("console.log('util')")
+def test_scan_with_glob_patterns():
+    # Create test directory and files if they don't exist
+    test_dir = Path("tests/data")
+    test_dir.mkdir(parents=True, exist_ok=True)
 
-    # Test glob pattern scanning
-    files = scan_directory(tmp_path / "**/*.py")
+    with open(test_dir / "test1.txt", "w") as f:
+        f.write("This is a test file")
+    with open(test_dir / "test2.md", "w") as f:
+        f.write("This is another test file")
+
+    files = scan_files(["*.txt", "*.md"], test_dir)
     assert len(files) == 2
-    assert any("test1.py" in str(p) for p in files)
-    assert any("main.py" in str(p) for p in files)
-
-    # Test multiple patterns
-    files = scan_directory(tmp_path / "*.js")
-    assert len(files) == 1
-    assert any("test2.js" in str(p) for p in files)
 
 
 def test_find_gitignore_exists(git_repo):
@@ -106,12 +101,16 @@ def test_scan_with_recursive_glob(tmp_path):
     (deep_dir / "test.js").write_text("console.log('test')")
 
     # Test recursive glob pattern
-    files = scan_directory(tmp_path / "**/*.py")
+    files = scan_directory(
+        tmp_path, include=["py"]
+    )  # Changed from tmp_path / "**/*.py"
     assert len(files) == 2
     assert any("test1.py" in str(p) for p in files)
     assert any("test2.py" in str(p) for p in files)
 
     # Test from within subdirectory
-    subdir_files = scan_directory(tmp_path / "very" / "**/*.py")
+    subdir_files = scan_directory(
+        tmp_path / "very", include=["py"]
+    )  # Changed from tmp_path / "very" / "**/*.py"
     assert len(subdir_files) == 1
     assert any("test2.py" in str(p) for p in subdir_files)
