@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional
 from os.path import commonpath
-from datetime import datetime
+from datetime import datetime, timezone
 import tiktoken
 
 
@@ -82,8 +82,8 @@ def format_file(file_path: Path, root_path: Path, content: Optional[str] = None)
 
 def create_header(files: list[Path], root_path: Path) -> str:
     """Create a header with metadata about the export."""
-    # Change to UTC timestamp
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    # Use timezone-aware UTC timestamp
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     file_list = []
     for f in sorted(files):

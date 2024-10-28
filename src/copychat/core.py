@@ -3,8 +3,6 @@ from typing import Optional
 import pathspec
 import subprocess
 from enum import Enum
-from glob import glob
-import os
 
 from .patterns import DEFAULT_EXTENSIONS, EXCLUDED_DIRS, EXCLUDED_PATTERNS
 
@@ -26,12 +24,10 @@ def resolve_paths(paths: list[str], base_path: Path = Path(".")) -> list[Path]:
     resolved = []
     for path in paths:
         if is_glob_pattern(path):
-            # Handle glob patterns relative to base_path
-            full_pattern = os.path.join(str(base_path), path)
-            matches = [Path(p) for p in glob(full_pattern, recursive=True)]
+            # Use Path.rglob() for better handling of recursive glob patterns
+            matches = list(base_path.rglob(path))
             resolved.extend(matches)
         else:
-            # Handle regular paths
             resolved.append(base_path / path)
     return resolved
 

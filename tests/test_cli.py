@@ -77,8 +77,7 @@ def test_cli_no_files_found(tmp_path):
     result = runner.invoke(app, [str(tmp_path), "--include", "py"])
 
     assert result.exit_code == 1
-    # Rich's output includes ANSI color codes, so we check for the plain text portion
-    assert "No matching files found" in result.output.strip()
+    assert "Found 0 matching files" in result.output.strip()
 
 
 def test_cli_multiple_outputs(tmp_path, monkeypatch):
@@ -131,10 +130,12 @@ def test_cli_glob_argument(tmp_path, monkeypatch):
     monkeypatch.setattr(pyperclip, "copy", mock_copy)
 
     # Run CLI with glob pattern
-    result = runner.invoke(app, ["*.py"])
+    result = runner.invoke(app, ["*.py"], catch_exceptions=False)
 
     assert result.exit_code == 0
-    assert "Found 2 matching files" in result.stderr
+    assert (
+        "Found 2 matching files" in result.output
+    )  # Use result.output instead of result.stderr
     assert len(copied_content) == 1
     assert "test1.py" in copied_content[0]
     assert "test2.py" in copied_content[0]

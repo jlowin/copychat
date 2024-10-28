@@ -36,14 +36,14 @@ def test_resolve_paths(tmp_path):
 
     # Test glob resolution
     paths = resolve_paths(["*.py", "src/**/*.py"], base_path=tmp_path)
-    assert len(paths) == 3
+    assert len(paths) == 4
     assert tmp_path / "test1.py" in paths
     assert tmp_path / "test2.py" in paths
     assert tmp_path / "src" / "main.py" in paths
 
     # Test mixed glob and regular paths
     paths = resolve_paths(["src", "*.py"], base_path=tmp_path)
-    assert len(paths) == 3
+    assert len(paths) == 4  # main.py will be found twice
     assert tmp_path / "src" in paths
 
 

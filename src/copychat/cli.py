@@ -180,7 +180,7 @@ def main(
 
         if not all_files:
             error_console.print("Found [red]0[/] matching files")
-            return  # Exit early without copying anything
+            raise typer.Exit(1)  # Exit with code 1 to indicate no files found
 
         # Format files - pass both paths and content
         result = format_files_xml(

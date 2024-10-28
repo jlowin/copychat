@@ -33,7 +33,8 @@ def test_gitignore_handling(sample_project):
 def test_formatting_output(sample_project):
     """Test the formatting of scanned files."""
     files = scan_directory(sample_project, include=["py", "js"])
-    result = format_files(list(files))
+    file_contents = [(f, f.read_text()) for f in files]
+    result = format_files(file_contents)
 
     # Check XML structure
     assert "<file " in result
