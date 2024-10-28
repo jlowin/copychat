@@ -1,7 +1,7 @@
 [project]
 name = "copychat"
 version = "0.1.0"
-description = "Convert source code directories into markdown for LLM context"
+description = "Easily copy code for LLM context"
 authors = []
 dependencies = [
     "typer>=0.9.0",
