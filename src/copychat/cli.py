@@ -13,8 +13,8 @@ from .core import (
     get_file_content,
 )
 from .format import (
-    estimate_tokens,
     format_files as format_files_xml,
+    create_display_header,
 )
 from .sources import GitHubSource
 
@@ -89,6 +89,12 @@ def main(
         "--print",
         "-p",
         help="Print output to screen",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed file information in output",
     ),
     include: Optional[str] = typer.Option(
         None,
@@ -183,10 +189,28 @@ def main(
             raise typer.Exit(1)  # Exit with code 1 to indicate no files found
 
         # Format files - pass both paths and content
-        result = format_files_xml(
+        format_result = format_files_xml(
             [(path, content) for path, content in all_files.items()]
         )
-        error_console.print(f"Found [green]{len(all_files)}[/] matching files")
+
+        # Get the formatted content, conditionally including header
+        if verbose:
+            result = str(format_result)
+            # Print the display header to stderr for visibility
+            error_console.print(
+                "\nFile summary:",
+                style="bold blue",
+            )
+            # Use the display-friendly header
+            error_console.print(create_display_header(format_result))
+            error_console.print()  # Add blank line after header
+        else:
+            # Skip the header by taking only the formatted files
+            result = "\n".join(f.formatted_content for f in format_result.files)
+
+        error_console.print(
+            f"Found [green]{len(format_result.files)}[/] matching files"
+        )
 
         # Handle outputs
         if outfile:
@@ -209,10 +233,11 @@ def main(
                 )
 
         pyperclip.copy(result)
-        token_count = estimate_tokens(result)
+        # Calculate total lines outside the f-string
+        total_lines = sum(f.content.count("\n") + 1 for f in format_result.files)
         error_console.print(
             f"{'Appended' if append else 'Copied'} to clipboard "
-            f"({len(result):,} chars, ~{token_count:,} tokens)"
+            f"(~{format_result.total_tokens:,} tokens, {total_lines:,} lines)"
         )
 
         # Print to stdout only if explicitly requested
