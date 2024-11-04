@@ -159,6 +159,21 @@ Use the `--verbose` flag (or `-v`) to include detailed file information in the o
 copychat -v
 ```
 
+### Limiting Directory Depth
+
+Control how deep copychat scans subdirectories:
+
+```bash
+# Only files in current directory
+copychat --depth 0
+
+# Current directory and immediate subdirectories only
+copychat --depth 1
+
+# Scan up to 3 levels deep
+copychat --depth 3
+```
+
 ## Options
 
 ```bash
@@ -172,7 +187,8 @@ Options:
   -v, --verbose         Show detailed file information in output
   -i, --include TEXT    Extensions to include (comma-separated, e.g. 'py,js,ts')
   -x, --exclude TEXT    Glob patterns to exclude
-  -d, --diff-mode TEXT  How to handle git diffs
+  -d, --depth INTEGER   Maximum directory depth to scan (0 = current dir only)
+  --diff-mode TEXT     How to handle git diffs
   --debug              Debug mode for development
   --help               Show this message and exit
 ```

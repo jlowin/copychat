@@ -41,9 +41,15 @@ def resolve_paths(paths: list[str], base_path: Path = Path(".")) -> list[Path]:
                         continue
                     resolved.append(match)
                 except ValueError:
-                    continue
+                    # If path is not relative to base_path, just use it as-is
+                    resolved.append(match)
         else:
-            resolved.append(base_path / path)
+            # For non-glob paths, use them as-is
+            path_obj = Path(path)
+            if path_obj.is_absolute():
+                resolved.append(path_obj)
+            else:
+                resolved.append(base_path / path)
     return resolved
 
 
@@ -174,6 +180,7 @@ def scan_directory(
     include: Optional[list[str]] = None,
     exclude_patterns: Optional[list[str]] = None,
     diff_mode: DiffMode = DiffMode.FULL,
+    max_depth: Optional[int] = None,
 ) -> dict[Path, str]:
     """Scan directory for files to process."""
     # Get changed files upfront if we're using a diff mode
@@ -214,6 +221,17 @@ def scan_directory(
         # Use os.walk for better performance than rglob
         for root, _, files in os.walk(abs_path):
             root_path = Path(root)
+
+            # Check depth if max_depth is specified
+            if max_depth is not None:
+                try:
+                    # Calculate current depth relative to the starting path
+                    rel_path = root_path.relative_to(abs_path)
+                    current_depth = len(rel_path.parts)
+                    if current_depth > max_depth:
+                        continue
+                except ValueError:
+                    continue
 
             # Get relative path once per directory
             try:
