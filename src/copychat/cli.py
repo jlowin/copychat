@@ -4,6 +4,7 @@ from typing import Optional, List
 from rich.console import Console
 import pyperclip
 from enum import Enum
+from importlib.metadata import version as get_version
 
 from .core import (
     is_glob_pattern,
@@ -66,6 +67,12 @@ def main(
         None,
         help="Paths to process within the source (defaults to current directory)",
     ),
+    version: bool = typer.Option(
+        None,
+        "--version",
+        help="Show version and exit.",
+        is_eager=True,
+    ),
     source: Optional[str] = typer.Option(
         None,
         "--source",
@@ -127,6 +134,10 @@ def main(
     ),
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
+    if version:
+        console.print(f"copychat version {get_version('copychat')}")
+        raise typer.Exit()
+
     try:
         # Parse source type and location
         source_type, source_loc = (
