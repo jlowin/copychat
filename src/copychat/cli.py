@@ -7,8 +7,6 @@ from enum import Enum
 from importlib.metadata import version as get_version
 
 from .core import (
-    is_glob_pattern,
-    resolve_paths,
     scan_directory,
     DiffMode,
     get_file_content,
@@ -171,36 +169,48 @@ def main(
             if not paths:
                 paths = ["."]
 
-            # Handle glob patterns in command line arguments
-            resolved_paths = []
-            for path in paths:
-                if is_glob_pattern(path):
-                    # Use resolve_paths for glob patterns
-                    resolved = resolve_paths([path], base_path=source_dir)
-                    resolved_paths.extend(resolved)
-                else:
-                    # Keep regular paths as-is
-                    resolved_paths.append(
-                        source_dir / path if source_dir != Path(".") else Path(path)
-                    )
-
-            # Scan all resolved paths
+            # Handle paths
             all_files = {}
-            for target in resolved_paths:
-                if target.is_file():
-                    content = get_file_content(target, diff_mode)
-                    if content is not None:
-                        all_files[target] = content
+            for path in paths:
+                target = Path(path)
+                if target.is_absolute():
+                    # Use absolute paths as-is
+                    if target.is_file():
+                        content = get_file_content(target, diff_mode)
+                        if content is not None:
+                            all_files[target] = content
+                    else:
+                        files = scan_directory(
+                            target,
+                            include=include.split(",") if include else None,
+                            exclude_patterns=exclude,
+                            diff_mode=diff_mode,
+                            max_depth=depth,
+                        )
+                        all_files.update(files)
                 else:
-                    files = scan_directory(
-                        target,
-                        include=include.split(",") if include else None,
-                        exclude_patterns=exclude,
-                        diff_mode=diff_mode,
-                        max_depth=depth,
-                    )
-                    all_files.update(files)
+                    # For relative paths, try both relative to current dir and source dir
+                    targets = [Path.cwd() / path]
+                    if source_dir != Path("."):
+                        targets.append(source_dir / path)
 
+                    for target in targets:
+                        if target.exists():
+                            if target.is_file():
+                                content = get_file_content(target, diff_mode)
+                                if content is not None:
+                                    all_files[target] = content
+                                break
+                            else:
+                                files = scan_directory(
+                                    target,
+                                    include=include.split(",") if include else None,
+                                    exclude_patterns=exclude,
+                                    diff_mode=diff_mode,
+                                    max_depth=depth,
+                                )
+                                all_files.update(files)
+                                break
         if not all_files:
             error_console.print("Found [red]0[/] matching files")
             raise typer.Exit(1)  # Exit with code 1 to indicate no files found
