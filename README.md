@@ -151,6 +151,14 @@ copychat --print
 copychat --out context.md
 ```
 
+### Verbose Output
+
+Use the `--verbose` flag (or `-v`) to include detailed file information in the output, including token counts:
+
+```bash
+copychat -v
+```
+
 ## Options
 
 ```bash
@@ -161,6 +169,7 @@ Options:
   -o, --out PATH        Write output to file
   -a, --append          Append output instead of overwriting
   -p, --print          Print output to screen
+  -v, --verbose         Show detailed file information in output
   -i, --include TEXT    Extensions to include (comma-separated, e.g. 'py,js,ts')
   -x, --exclude TEXT    Glob patterns to exclude
   -d, --diff-mode TEXT  How to handle git diffs
