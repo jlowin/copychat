@@ -13,11 +13,17 @@ Copychat is a lightweight CLI tool that prepares your code for conversations wit
 - 📋 **Clipboard ready**: Results go straight to your clipboard
 - 🔢 **Token smart**: Estimates token count for context planning
 
-## Installation
+## Running Copychat
 
+You can use [uv](https://docs.astral.sh/uv/) to run copychat directly from the command line, without needing to install it first:
 ```bash
-pip install copychat
+uvx copychat
 ```
+
+If you want to save a few milliseconds, you can install copychat globally with `uv tool install copychat` or in your environment with `uv pip install copychat`. And of course, `pip install copychat` works too.
+
+In this readme, we'll show the `copychat` command directly for simplicity, but `uvx copychat` works identically.
+
 
 ## Quick Start
 Collect, format, and copy all source code in the current directory (and subdirectories) to the clipboard:
