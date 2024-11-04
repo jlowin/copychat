@@ -1,6 +1,6 @@
 [project]
 name = "copychat"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Easily copy code for LLM context"
 authors = []
 dependencies = [
