@@ -111,9 +111,14 @@ def main(
     diff_mode: str = typer.Option(
         "full",  # Pass the string value instead of enum
         "--diff-mode",
-        "-d",
         help="How to handle git diffs",
         callback=diff_mode_callback,
+    ),
+    depth: Optional[int] = typer.Option(
+        None,
+        "--depth",
+        "-d",
+        help="Maximum directory depth to scan (0 = current dir only)",
     ),
     debug: bool = typer.Option(
         False,
@@ -181,6 +186,7 @@ def main(
                         include=include.split(",") if include else None,
                         exclude_patterns=exclude,
                         diff_mode=diff_mode,
+                        max_depth=depth,
                     )
                     all_files.update(files)
 
