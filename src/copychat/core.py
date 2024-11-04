@@ -41,9 +41,15 @@ def resolve_paths(paths: list[str], base_path: Path = Path(".")) -> list[Path]:
                         continue
                     resolved.append(match)
                 except ValueError:
-                    continue
+                    # If path is not relative to base_path, just use it as-is
+                    resolved.append(match)
         else:
-            resolved.append(base_path / path)
+            # For non-glob paths, use them as-is
+            path_obj = Path(path)
+            if path_obj.is_absolute():
+                resolved.append(path_obj)
+            else:
+                resolved.append(base_path / path)
     return resolved
 
 

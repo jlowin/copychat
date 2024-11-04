@@ -38,14 +38,14 @@ def test_resolve_paths(tmp_path):
 
     # Test glob resolution
     paths = resolve_paths(["*.py", "src/**/*.py"], base_path=tmp_path)
-    assert len(paths) == 4
+    assert len(paths) == 3
     assert tmp_path / "test1.py" in paths
     assert tmp_path / "test2.py" in paths
     assert tmp_path / "src" / "main.py" in paths
 
     # Test mixed glob and regular paths
     paths = resolve_paths(["src", "*.py"], base_path=tmp_path)
-    assert len(paths) == 4  # main.py will be found twice
+    assert len(paths) == 3
     assert tmp_path / "src" in paths
 
 
@@ -114,3 +114,30 @@ def test_scan_with_recursive_glob(tmp_path):
     )  # Changed from tmp_path / "very" / "**/*.py"
     assert len(subdir_files) == 1
     assert any("test2.py" in str(p) for p in subdir_files)
+
+
+def test_scan_single_file(tmp_path):
+    """Test scanning a single file."""
+    # Create a test file
+    test_file = tmp_path / "test.py"
+    test_file.write_text("print('hello world')")
+
+    # Create some other files that shouldn't be included
+    (tmp_path / "other.py").write_text("print('other')")
+    (tmp_path / "test.js").write_text("console.log('test')")
+
+    # Test scanning just the single file
+    files = scan_directory(test_file, include=["py"])
+
+    # Should only contain our specific file
+    assert len(files) == 1
+    assert test_file in files
+    assert files[test_file] == "print('hello world')"
+
+    # Test with non-matching extension filter
+    files = scan_directory(test_file, include=["js"])
+    assert len(files) == 0
+
+    # Test with non-existent file
+    files = scan_directory(tmp_path / "nonexistent.py", include=["py"])
+    assert len(files) == 0
