@@ -130,6 +130,11 @@ def main(
         "--debug",
         help="Debug mode for development",
     ),
+    compare_branch: Optional[str] = typer.Option(
+        None,
+        "--diff-branch",
+        help="Compare changes against specified branch instead of working directory",
+    ),
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
     if version:
@@ -162,7 +167,9 @@ def main(
 
         # Handle file vs directory source
         if source_dir.is_file():
-            content = get_file_content(source_dir, diff_mode)
+            content = get_file_content(
+                source_dir, diff_mode, compare_branch=compare_branch
+            )
             all_files = {source_dir: content} if content is not None else {}
         else:
             # For directories, scan all paths
@@ -176,7 +183,9 @@ def main(
                 if target.is_absolute():
                     # Use absolute paths as-is
                     if target.is_file():
-                        content = get_file_content(target, diff_mode)
+                        content = get_file_content(
+                            target, diff_mode, compare_branch=compare_branch
+                        )
                         if content is not None:
                             all_files[target] = content
                     else:
@@ -186,6 +195,7 @@ def main(
                             exclude_patterns=exclude,
                             diff_mode=diff_mode,
                             max_depth=depth,
+                            compare_branch=compare_branch,
                         )
                         all_files.update(files)
                 else:
@@ -197,7 +207,9 @@ def main(
                     for target in targets:
                         if target.exists():
                             if target.is_file():
-                                content = get_file_content(target, diff_mode)
+                                content = get_file_content(
+                                    target, diff_mode, compare_branch=compare_branch
+                                )
                                 if content is not None:
                                     all_files[target] = content
                                 break
@@ -208,12 +220,13 @@ def main(
                                     exclude_patterns=exclude,
                                     diff_mode=diff_mode,
                                     max_depth=depth,
+                                    compare_branch=compare_branch,
                                 )
                                 all_files.update(files)
                                 break
         if not all_files:
             error_console.print("Found [red]0[/] matching files")
-            raise typer.Exit(1)  # Exit with code 1 to indicate no files found
+            return
 
         # Format files - pass both paths and content
         format_result = format_files_xml(

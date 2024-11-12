@@ -90,8 +90,8 @@ def get_gitignore_spec(
     return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
 
-def get_git_diff(path: Path) -> str:
-    """Get git diff for the given path."""
+def get_git_diff(path: Path, compare_branch: Optional[str] = None) -> str:
+    """Get git diff for the given path, optionally comparing against a specific branch."""
     try:
         # First check if file is tracked by git
         result = subprocess.run(
@@ -103,43 +103,109 @@ def get_git_diff(path: Path) -> str:
         if result.returncode != 0:
             return ""  # File is not tracked by git
 
-        # Get the diff for tracked files
-        result = subprocess.run(
-            ["git", "diff", "--exit-code", str(path)],
-            capture_output=True,
-            text=True,
-            check=False,  # Don't raise error for no changes
-        )
-        # exit-code 0 means no changes, 1 means changes present
-        return result.stdout if result.returncode == 1 else ""
+        # Get the diff, either against the index (default) or specified branch
+        if compare_branch:
+            # First get the merge base
+            merge_base = subprocess.run(
+                ["git", "merge-base", "HEAD", compare_branch],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+
+            # Then do the diff against the merge base
+            result = subprocess.run(
+                ["git", "diff", merge_base, "--", str(path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        else:
+            result = subprocess.run(
+                ["git", "diff", "--", str(path)],  # Removed --exit-code
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        return result.stdout  # Return output regardless of return code
 
     except subprocess.CalledProcessError:
         return ""
 
 
-def get_changed_files() -> set[Path]:
+def get_changed_files(compare_branch: Optional[str] = None) -> set[Path]:
     """Get set of files that have changes according to git."""
     try:
-        # Get both staged and unstaged changes
-        result = subprocess.run(
-            ["git", "status", "--porcelain"],
+        # First get the git root directory
+        git_root = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
             capture_output=True,
             text=True,
             check=True,
-        )
+        ).stdout.strip()
+        git_root_path = Path(git_root)
+
+        if compare_branch:
+            # Get all changes between current branch and compare branch
+            result = subprocess.run(
+                [
+                    "git",
+                    "diff",
+                    "--name-status",
+                    f"{compare_branch}...HEAD",  # Use triple dot to compare branches
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            # Also get any unstaged/uncommitted changes
+            unstaged_result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            # Combine both results
+            combined_output = result.stdout + unstaged_result.stdout
+        else:
+            # Get both staged and unstaged changes (current behavior)
+            combined_output = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+
         changed = set()
-        for line in result.stdout.splitlines():
-            if line.strip() and len(line) > 3:
-                # Extract filename from git status output
-                filepath = line[3:].strip().split(" -> ")[-1]
-                changed.add(Path(filepath))
+        for line in combined_output.splitlines():
+            if not line.strip():
+                continue
+
+            # Split on tab or space to handle both formats
+            parts = line.split(None, 1)  # Split on whitespace, max 1 split
+            if len(parts) < 2:
+                continue
+
+            status, filepath = parts
+
+            # Handle renamed files (they have arrow notation)
+            if " -> " in filepath:
+                filepath = filepath.split(" -> ")[-1]
+
+            # Convert relative path to absolute using git root
+            abs_path = (git_root_path / filepath).resolve()
+            changed.add(abs_path)
+
         return changed
     except subprocess.CalledProcessError:
         return set()
 
 
 def get_file_content(
-    path: Path, diff_mode: DiffMode, changed_files: Optional[set[Path]] = None
+    path: Path,
+    diff_mode: DiffMode,
+    changed_files: Optional[set[Path]] = None,
+    compare_branch: Optional[str] = None,
 ) -> Optional[str]:
     """Get file content based on diff mode."""
     if not path.is_file():
@@ -148,28 +214,30 @@ def get_file_content(
     # Get content
     content = path.read_text()
 
-    # Only get diff if needed based on mode
-    if diff_mode in (DiffMode.FULL, DiffMode.DIFF_ONLY):
-        return content if diff_mode == DiffMode.FULL else None
+    # Return full content immediately if that's what we want
+    if diff_mode == DiffMode.FULL:
+        return content
 
-    # For diff modes, first check if file is in changed set
+    # Check if file has changes and get diff if needed
     if changed_files is not None:
         has_changes = path in changed_files
+        # Get diff here so we can use it for all diff modes
+        diff = get_git_diff(path, compare_branch) if has_changes else ""
     else:
-        # Fallback to individual diff check
-        diff = get_git_diff(path)
+        # Get diff first, then check if there are changes
+        diff = get_git_diff(path, compare_branch)
         has_changes = bool(diff)
 
     # Handle different modes
-    if diff_mode == DiffMode.CHANGED_WITH_DIFF:
+    if diff_mode == DiffMode.DIFF_ONLY:
+        return diff if has_changes else None
+    elif diff_mode == DiffMode.CHANGED_WITH_DIFF:
         if not has_changes:
             return None
-        diff = get_git_diff(path) if changed_files is not None else diff
         return f"{content}\n\n# Git Diff:\n{diff}"
     elif diff_mode == DiffMode.FULL_WITH_DIFF:
         if not has_changes:
             return content
-        diff = get_git_diff(path) if changed_files is not None else diff
         return f"{content}\n\n# Git Diff:\n{diff}"
 
     return None
@@ -181,10 +249,13 @@ def scan_directory(
     exclude_patterns: Optional[list[str]] = None,
     diff_mode: DiffMode = DiffMode.FULL,
     max_depth: Optional[int] = None,
+    compare_branch: Optional[str] = None,
 ) -> dict[Path, str]:
     """Scan directory for files to process."""
     # Get changed files upfront if we're using a diff mode
-    changed_files = get_changed_files() if diff_mode != DiffMode.FULL else None
+    changed_files = (
+        get_changed_files(compare_branch) if diff_mode != DiffMode.FULL else None
+    )
 
     # Convert string paths to Path objects and handle globs
     if isinstance(path, str):
@@ -205,7 +276,9 @@ def scan_directory(
             # For single files, just check if it matches filters
             if include and current_path.suffix.lstrip(".") not in include:
                 continue
-            content = get_file_content(current_path, diff_mode, changed_files)
+            content = get_file_content(
+                current_path, diff_mode, changed_files, compare_branch
+            )
             if content is not None:
                 result[current_path] = content
             continue
@@ -264,7 +337,9 @@ def scan_directory(
                 file_path = root_path / filename
 
                 # Get content based on diff mode
-                content = get_file_content(file_path, diff_mode, changed_files)
+                content = get_file_content(
+                    file_path, diff_mode, changed_files, compare_branch
+                )
                 if content is not None:
                     result[file_path] = content
 
