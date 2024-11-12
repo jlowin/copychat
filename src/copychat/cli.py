@@ -133,7 +133,6 @@ def main(
     compare_branch: Optional[str] = typer.Option(
         None,
         "--diff-branch",
-        "-b",
         help="Compare changes against specified branch instead of working directory",
     ),
 ) -> None:

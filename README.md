@@ -100,9 +100,14 @@ copychat --diff-mode full-with-diff
 
 # Show only the git diff chunks themselves
 copychat --diff-mode diff-only
+
+# See what changed since branching from develop
+copychat --diff-mode diff-only --diff-branch develop
 ```
 
-This is particularly useful when you want to discuss code changes with an LLM.
+The `-diff-mode` and `--diff-branch` options are particularly useful when you want to:
+- Review any changes you've made, either in isolation or in context
+- Compare changes against a specific branch
 
 ### Excluding Files
 
@@ -189,6 +194,7 @@ Options:
   -x, --exclude TEXT    Glob patterns to exclude
   -d, --depth INTEGER   Maximum directory depth to scan (0 = current dir only)
   --diff-mode TEXT     How to handle git diffs
+  --diff-branch TEXT Compare changes against specified branch
   --debug              Debug mode for development
   --help               Show this message and exit
 ```
