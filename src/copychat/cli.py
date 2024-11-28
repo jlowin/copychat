@@ -199,10 +199,16 @@ def main(
                         )
                         all_files.update(files)
                 else:
-                    # For relative paths, try both relative to current dir and source dir
-                    targets = [Path.cwd() / path]
-                    if source_dir != Path("."):
-                        targets.append(source_dir / path)
+                    # For relative paths, try source dir first, then current dir
+                    targets = []
+                    if source_type == SourceType.GITHUB:
+                        # For GitHub sources, only look in the source directory
+                        targets = [source_dir / path]
+                    else:
+                        # For filesystem sources, try both but prefer source dir
+                        if source_dir != Path("."):
+                            targets.append(source_dir / path)
+                        targets.append(Path.cwd() / path)
 
                     for target in targets:
                         if target.exists():
