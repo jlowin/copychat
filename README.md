@@ -133,7 +133,12 @@ copychat --source github:username/repo
 
 # Or just paste a GitHub URL
 copychat --source https://github.com/username/repo
+
+# Process specific paths within the repository
+copychat --source github:username/repo src/main.py tests/
 ```
+
+The `--source` flag specifies where to look (GitHub, filesystem, etc.), and then any additional arguments specify which paths within that source to process. This means you can target specific files or directories within a GitHub repository just like you would with local files.
 
 ### Output Options
 
