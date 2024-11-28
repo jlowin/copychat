@@ -30,13 +30,13 @@ def parse_source(source: str) -> tuple[SourceType, str]:
     """Parse source string into type and location."""
     if source.startswith(("github:", "gh:")):
         return SourceType.GITHUB, source.split(":", 1)[1]
-    if source.startswith(("http://", "https://")):
-        return SourceType.WEB, source
     if "github.com" in source:
         # Handle raw GitHub URLs
         parts = source.split("github.com/", 1)
         if len(parts) == 2:
             return SourceType.GITHUB, parts[1]
+    if source.startswith(("http://", "https://")):
+        return SourceType.WEB, source
     return SourceType.FILESYSTEM, source
 
 
