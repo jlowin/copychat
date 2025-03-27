@@ -1,6 +1,6 @@
-# copychat 📋💬
+# CopyChat 📋🐈‍⬛
 
-> Simple code to context
+**Simple code-to-context.**
 
 Copychat is a lightweight CLI tool that prepares your code for conversations with LLMs. It intelligently formats your source files into chat-ready context, handling everything from file selection to git diffs.
 
@@ -20,10 +20,14 @@ You can use [uv](https://docs.astral.sh/uv/) to run copychat directly from the c
 uvx copychat
 ```
 
-If you want to save a few milliseconds, you can install copychat globally with `uv tool install copychat` or in your environment with `uv pip install copychat`. And of course, `pip install copychat` works too.
+Frequent users may want to add the following alias to their `.zshrc` or `.bashrc`:
+```bash
+alias cc="uvx copychat"
+```
 
-In this readme, we'll show the `copychat` command directly for simplicity, but `uvx copychat` works identically.
+This permits you to quickly copy context by running e.g. `cc docs/getting-started/ src/core/` from any directory, in any environment.
 
+If you want to save a few milliseconds, you can install copychat globally with `uv tool install copychat` or add it to your environment with `uv add copychat`. And of course, `pip install copychat` works too.
 
 ## Quick Start
 Collect, format, and copy all source code in the current directory (and subdirectories) to the clipboard:
