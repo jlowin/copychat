@@ -1,4 +1,4 @@
-# CopyChat 📋🐈‍⬛
+# Copychat 📋🐈‍⬛
 
 **Simple code-to-context.**
 
