@@ -227,3 +227,51 @@ Copychat generates clean, structured output with:
 - Token count estimates
 - Git diff information (when requested)
 - Proper syntax highlighting markers
+
+## Using `.ccignore` Files
+
+CopyChat supports hierarchical ignore patterns through `.ccignore` files. These files work similarly to `.gitignore` files but with an important difference: they apply to all directories and subdirectories where they're located.
+
+### Key Features
+
+- `.ccignore` files use the same syntax as `.gitignore` files
+- Each `.ccignore` file applies to its directory and all subdirectories
+- Patterns from multiple `.ccignore` files are inherited, with more specific directories taking precedence
+
+### Example
+
+```
+project/
+├── .ccignore        # Contains "*.log" - excludes log files in all directories
+├── src/
+│   ├── .ccignore    # Contains "*.tmp" - excludes tmp files in src/ and below
+│   └── ...
+└── tests/
+    ├── .ccignore    # Contains "*.fixture" - excludes fixture files in tests/ and below
+    └── ...
+```
+
+In this example:
+- `*.log` files are excluded everywhere
+- `*.tmp` files are only excluded in `src/` and its subdirectories
+- `*.fixture` files are only excluded in `tests/` and its subdirectories
+
+### Creating a `.ccignore` File
+
+Create a `.ccignore` file in your project root or any subdirectory:
+
+```
+# Comment lines start with #
+# Blank lines are ignored
+
+# Ignore all files with .log extension
+*.log
+
+# Ignore specific files
+secrets.json
+credentials.yaml
+
+# Ignore directories
+node_modules/
+__pycache__/
+```

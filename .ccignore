@@ -1,0 +1,35 @@
+# CopyChat default ignore patterns
+# This file uses the same syntax as .gitignore
+# It applies to the current directory and all subdirectories
+
+# Build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+*.egg-info/
+.mypy_cache/
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local development
+.env
+.venv
+env/
+venv/
+
+# Dependencies
+node_modules/
+
+# Project-specific
+# Add patterns specific to your project here 

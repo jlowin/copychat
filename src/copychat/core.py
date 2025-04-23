@@ -25,19 +25,23 @@ def resolve_paths(paths: list[str], base_path: Path = Path(".")) -> list[Path]:
     resolved = []
     base_path = base_path.resolve()
 
-    # Get gitignore spec once for all paths
-    spec = get_gitignore_spec(base_path)
+    # Get gitignore and ccignore specs once for all paths
+    git_spec = get_gitignore_spec(base_path)
+    cc_spec = get_ccignore_spec(base_path)
 
     for path in paths:
         if is_glob_pattern(path):
             matches = list(base_path.glob(path))
-            # Filter matches through gitignore and base path checks
+            # Filter matches through gitignore and ccignore
             for match in matches:
                 try:
                     # Check if under base path
                     rel_path = match.relative_to(base_path)
-                    # Skip if matches gitignore patterns
-                    if spec.match_file(str(rel_path)):
+                    # Skip if matches gitignore or ccignore patterns
+                    rel_path_str = str(rel_path)
+                    if git_spec.match_file(rel_path_str) or cc_spec.match_file(
+                        rel_path_str
+                    ):
                         continue
                     resolved.append(match)
                 except ValueError:
@@ -64,6 +68,29 @@ def find_gitignore(start_path: Path) -> Optional[Path]:
     return None
 
 
+def find_ccignore_files(start_path: Path) -> list[tuple[Path, Path]]:
+    """
+    Find all .ccignore files that apply to the given path.
+
+    Returns a list of tuples (ccignore_file, directory) where:
+    - ccignore_file is the path to the .ccignore file
+    - directory is the directory containing the .ccignore file
+
+    The list is ordered from most specific (closest to start_path) to most general.
+    """
+    ccignore_files = []
+    current = start_path.absolute()
+
+    # Start from the given path and traverse up to the root
+    while current != current.parent:
+        ccignore = current / ".ccignore"
+        if ccignore.is_file():
+            ccignore_files.append((ccignore, current))
+        current = current.parent
+
+    return ccignore_files
+
+
 def get_gitignore_spec(
     path: Path, extra_patterns: Optional[list[str]] = None
 ) -> pathspec.PathSpec:
@@ -86,6 +113,37 @@ def get_gitignore_spec(
                 line.strip() for line in f if line.strip() and not line.startswith("#")
             ]
             patterns.extend(gitignore_patterns)
+
+    return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
+
+
+def get_ccignore_spec(
+    path: Path, extra_patterns: Optional[list[str]] = None
+) -> pathspec.PathSpec:
+    """
+    Load .ccignore patterns from all applicable directories.
+
+    This function finds all .ccignore files that apply to the given path,
+    from the most specific (closest to the path) to the most general (root).
+    Patterns from more specific .ccignore files take precedence over more general ones.
+    """
+    patterns = []
+
+    # Add any extra patterns provided
+    if extra_patterns:
+        patterns.extend(extra_patterns)
+
+    # Get all applicable .ccignore files
+    ccignore_files = find_ccignore_files(path)
+
+    # Process files from most general to most specific
+    # This way, more specific patterns override more general ones
+    for ccignore_path, dir_path in reversed(ccignore_files):
+        with open(ccignore_path) as f:
+            ccignore_patterns = [
+                line.strip() for line in f if line.strip() and not line.startswith("#")
+            ]
+            patterns.extend(ccignore_patterns)
 
     return pathspec.PathSpec.from_lines("gitwildmatch", patterns)
 
@@ -288,8 +346,8 @@ def scan_directory(
         if not abs_path.exists():
             continue
 
-        # Get gitignore spec once per directory
-        spec = get_gitignore_spec(abs_path, exclude_patterns)
+        # Get gitignore spec once for the starting directory
+        git_spec = get_gitignore_spec(abs_path, exclude_patterns)
 
         # Use os.walk for better performance than rglob
         for root, _, files in os.walk(abs_path):
@@ -314,9 +372,14 @@ def scan_directory(
             except ValueError:
                 continue
 
-            # Check if directory should be skipped
-            if rel_root and spec.match_file(rel_root + "/"):
-                continue
+            # Get ccignore spec for the current directory (to handle hierarchical patterns)
+            cc_spec = get_ccignore_spec(root_path, exclude_patterns)
+
+            # Check if directory should be skipped (via gitignore or ccignore)
+            if rel_root:
+                dir_path = rel_root + "/"
+                if git_spec.match_file(dir_path) or cc_spec.match_file(dir_path):
+                    continue
 
             for filename in files:
                 # Quick extension check before more expensive operations
@@ -329,8 +392,10 @@ def scan_directory(
                     os.path.join(rel_root, filename) if rel_root else filename
                 )
 
-                # Check gitignore patterns
-                if spec.match_file(rel_path_str):
+                # Check both gitignore and ccignore patterns
+                if git_spec.match_file(rel_path_str) or cc_spec.match_file(
+                    rel_path_str
+                ):
                     continue
 
                 # Only create Path object if file passes all filters
