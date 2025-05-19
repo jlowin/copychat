@@ -33,9 +33,10 @@ target-version = "py39"
 testpaths = ["tests"]
 addopts = "-v --tb=short"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
     "pytest>=8.3.3",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=5.0.0",
+ "pytest-asyncio>=0.24.0",
+ "pytest-cov>=5.0.0",
 ]
