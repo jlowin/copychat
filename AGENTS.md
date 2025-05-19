@@ -101,5 +101,8 @@ Pushing a semantic-version tag to `main` triggers the **Publish Copychat to PyPI
 - Add new file types in `patterns.py`
 - Add new source types in `sources.py`
 - Add new formatting options in `format.py`
+- `GitHubItem` in `sources.py` fetches issues and PRs. Pass an issue/PR URL
+  (e.g. `owner/repo#123` or `https://github.com/owner/repo/issues/123`) directly
+  to the main `copychat` command.
 
 **Note to LLMs**: When working on this repository, keep this AGENTS.md file up to date with new insights that would help future LLMs quickly understand the codebase structure and functionality. This file should serve as a quick reference that reduces the need for extensive code exploration.

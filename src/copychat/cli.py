@@ -15,7 +15,7 @@ from .format import (
     format_files as format_files_xml,
     create_display_header,
 )
-from .sources import GitHubSource
+from .sources import GitHubSource, GitHubItem
 
 
 class SourceType(Enum):
@@ -38,6 +38,23 @@ def parse_source(source: str) -> tuple[SourceType, str]:
     if source.startswith(("http://", "https://")):
         return SourceType.WEB, source
     return SourceType.FILESYSTEM, source
+
+
+def parse_github_item(item: str) -> tuple[str, int]:
+    """Parse issue or PR identifier into repo and number."""
+    import re
+
+    if item.startswith("http://") or item.startswith("https://"):
+        m = re.search(r"github\.com/([^/]+/[^/]+)/(?:issues|pull)/([0-9]+)", item)
+        if not m:
+            raise typer.BadParameter("Invalid GitHub URL")
+        return m.group(1), int(m.group(2))
+
+    if "#" in item:
+        repo, num = item.split("#", 1)
+        return repo.strip(), int(num)
+
+    raise typer.BadParameter("Item must be in owner/repo#number format or URL")
 
 
 def diff_mode_callback(value: str) -> DiffMode:
@@ -135,6 +152,12 @@ def main(
         "--diff-branch",
         help="Compare changes against specified branch instead of working directory",
     ),
+    token: Optional[str] = typer.Option(
+        None,
+        "--token",
+        envvar="GITHUB_TOKEN",
+        help="GitHub token for issue and PR access",
+    ),
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
     if version:
@@ -179,6 +202,16 @@ def main(
             # Handle paths
             all_files = {}
             for path in paths:
+                # Allow GitHub issues/PRs as direct arguments
+                try:
+                    repo, num = parse_github_item(path)
+                    gh_item = GitHubItem(repo, num, token)
+                    p, content = gh_item.fetch()
+                    all_files[p] = content
+                    continue
+                except Exception:
+                    pass
+
                 target = Path(path)
                 if target.is_absolute():
                     # Use absolute paths as-is
@@ -295,3 +328,5 @@ def main(
             raise
         error_console.print(f"[red]Error:[/] {str(e)}")
         raise typer.Exit(1)
+
+

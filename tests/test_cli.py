@@ -119,3 +119,19 @@ def test_cli_multiple_outputs(tmp_path, monkeypatch):
 
     # Check stdout
     assert 'language="python"' in result.stdout
+
+
+def test_cli_issue(monkeypatch):
+    runner = CliRunner(mix_stderr=False)
+
+    def fake_fetch(self):
+        return Path("issue.md"), "issue body"
+
+    monkeypatch.setattr("copychat.sources.GitHubItem.fetch", fake_fetch)
+    copied = []
+    monkeypatch.setattr(pyperclip, "copy", lambda x: copied.append(x))
+
+    result = runner.invoke(app, ["owner/repo#1"])
+    assert result.exit_code == 0
+    assert copied
+    assert "issue body" in copied[0]
