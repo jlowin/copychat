@@ -129,6 +129,8 @@ Copychat automatically respects your `.gitignore` file and common ignore pattern
 
 ### GitHub Integration
 
+#### Reading GitHub Repositories
+
 Pull directly from GitHub repositories:
 
 ```bash
@@ -143,6 +145,25 @@ copychat --source github:username/repo src/main.py tests/
 ```
 
 The `--source` flag specifies where to look (GitHub, filesystem, etc.), and then any additional arguments specify which paths within that source to process. This means you can target specific files or directories within a GitHub repository just like you would with local files.
+
+#### Reading GitHub Issues & PRs
+
+Copy the full text and comment history of a GitHub issue or pull request by
+passing the issue identifier directly to the main command:
+
+```bash
+copychat owner/repo#123
+```
+
+You can also use the full URL:
+
+```bash
+copychat https://github.com/owner/repo/issues/123
+```
+
+Set `GITHUB_TOKEN` or use `--token` if you need to access private issues.
+
+The output is formatted like other files, with XML-style tags.
 
 ### Output Options
 

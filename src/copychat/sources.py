@@ -48,3 +48,98 @@ class GitHubSource:
         """Remove cached repository."""
         if self.repo_dir.exists():
             shutil.rmtree(self.repo_dir)
+
+
+class GitHubItem:
+    """Fetch a GitHub issue or pull request with comments."""
+
+    def __init__(self, repo_path: str, number: int, token: Optional[str] = None):
+        self.repo_path = repo_path.strip("/")
+        self.number = number
+        self.token = token
+        self.api_base = "https://api.github.com"
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Accept": "application/vnd.github+json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
+
+    def fetch(self) -> tuple[Path, str]:
+        """Return (path, content) for the issue or PR."""
+        import requests
+
+        issue_url = f"{self.api_base}/repos/{self.repo_path}/issues/{self.number}"
+        resp = requests.get(issue_url, headers=self._headers(), timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+
+        comments_resp = requests.get(
+            data.get("comments_url"), headers=self._headers(), timeout=30
+        )
+        comments_resp.raise_for_status()
+        comments = comments_resp.json()
+
+        review_comments = []
+        if "pull_request" in data:
+            review_url = (
+                f"{self.api_base}/repos/{self.repo_path}/pulls/{self.number}/comments"
+            )
+            rc = requests.get(review_url, headers=self._headers(), timeout=30)
+            if rc.ok:
+                review_comments = rc.json()
+
+        lines = [f"# {data.get('title', '')} (#{self.number})", ""]
+        body = data.get("body") or ""
+
+        # Add metadata section
+        item_type = "Pull Request" if "pull_request" in data else "Issue"
+        html_url = data.get(
+            "html_url", f"https://github.com/{self.repo_path}/issues/{self.number}"
+        )
+        user = data.get("user", {}).get("login", "unknown")
+        created_at = data.get("created_at", "")
+        updated_at = data.get("updated_at", "")
+        state = data.get("state", "").upper()
+
+        # Create a metadata header
+        lines.extend(
+            [
+                f"> **{item_type}**: [{self.repo_path}#{self.number}]({html_url})",
+                f"> **Status**: {state}",
+                f"> **Author**: {user}",
+                f"> **Created**: {created_at}",
+                f"> **Updated**: {updated_at}",
+                "",
+            ]
+        )
+
+        if body:
+            lines.append(body)
+            lines.append("")
+
+        for c in comments:
+            user = c.get("user", {}).get("login", "unknown")
+            created = c.get("created_at", "")
+            lines.append(f"## {user} - {created}")
+            if c.get("body"):
+                lines.append(c["body"])
+            lines.append("")
+
+        for c in review_comments:
+            user = c.get("user", {}).get("login", "unknown")
+            created = c.get("created_at", "")
+            path = c.get("path", "")
+            lines.append(f"## Review by {user} on {path} - {created}")
+            if c.get("body"):
+                lines.append(c["body"])
+            lines.append("")
+
+        content = "\n".join(lines).strip() + "\n"
+        item_type_filename = "pr" if "pull_request" in data else "issue"
+        # Use absolute path to current working directory
+        filename = (
+            f"{self.repo_path.replace('/', '_')}_{item_type_filename}_{self.number}.md"
+        )
+        path = Path.cwd() / filename
+        return path, content

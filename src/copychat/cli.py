@@ -15,7 +15,7 @@ from .format import (
     format_files as format_files_xml,
     create_display_header,
 )
-from .sources import GitHubSource
+from .sources import GitHubSource, GitHubItem
 
 
 class SourceType(Enum):
@@ -28,16 +28,47 @@ class SourceType(Enum):
 
 def parse_source(source: str) -> tuple[SourceType, str]:
     """Parse source string into type and location."""
+    import re
+
     if source.startswith(("github:", "gh:")):
         return SourceType.GITHUB, source.split(":", 1)[1]
-    if "github.com" in source:
-        # Handle raw GitHub URLs
+
+    # Handle GitHub URLs with issues/pulls
+    if source and source.startswith(("http://", "https://")) and "github.com" in source:
+        pr_issue_match = re.search(
+            r"github\.com/([^/]+/[^/]+)/(?:issues|pull)/([0-9]+)", source
+        )
+        if pr_issue_match:
+            # This is a PR or issue URL, keep it as FILESYSTEM type so it's processed directly
+            return SourceType.FILESYSTEM, source
+
+    # Regular GitHub repo URL
+    if source and "github.com" in source:
         parts = source.split("github.com/", 1)
         if len(parts) == 2:
             return SourceType.GITHUB, parts[1]
-    if source.startswith(("http://", "https://")):
+
+    if source and source.startswith(("http://", "https://")):
         return SourceType.WEB, source
+
     return SourceType.FILESYSTEM, source
+
+
+def parse_github_item(item: str) -> tuple[str, int]:
+    """Parse issue or PR identifier into repo and number."""
+    import re
+
+    if item.startswith("http://") or item.startswith("https://"):
+        m = re.search(r"github\.com/([^/]+/[^/]+)/(?:issues|pull)/([0-9]+)", item)
+        if not m:
+            raise typer.BadParameter("Invalid GitHub URL")
+        return m.group(1), int(m.group(2))
+
+    if "#" in item:
+        repo, num = item.split("#", 1)
+        return repo.strip(), int(num)
+
+    raise typer.BadParameter("Item must be in owner/repo#number format or URL")
 
 
 def diff_mode_callback(value: str) -> DiffMode:
@@ -135,6 +166,12 @@ def main(
         "--diff-branch",
         help="Compare changes against specified branch instead of working directory",
     ),
+    token: Optional[str] = typer.Option(
+        None,
+        "--token",
+        envvar="GITHUB_TOKEN",
+        help="GitHub token for issue and PR access",
+    ),
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
     if version:
@@ -179,6 +216,16 @@ def main(
             # Handle paths
             all_files = {}
             for path in paths:
+                # Allow GitHub issues/PRs as direct arguments
+                try:
+                    repo, num = parse_github_item(path)
+                    gh_item = GitHubItem(repo, num, token)
+                    p, content = gh_item.fetch()
+                    all_files[p] = content
+                    continue
+                except Exception:
+                    pass
+
                 target = Path(path)
                 if target.is_absolute():
                     # Use absolute paths as-is
@@ -234,6 +281,20 @@ def main(
             error_console.print("Found [red]0[/] matching files")
             return
 
+        # Separate GitHub issues/PRs from regular files for better reporting
+        github_items = []
+        filesystem_files = []
+
+        for path, content in all_files.items():
+            if (
+                str(path).endswith((".md", ".issue.md", ".pr.md"))
+                and isinstance(path, Path)
+                and not path.exists()
+            ):
+                github_items.append((path, content))
+            else:
+                filesystem_files.append((path, content))
+
         # Format files - pass both paths and content
         format_result = format_files_xml(
             [(path, content) for path, content in all_files.items()]
@@ -254,9 +315,19 @@ def main(
             # Skip the header by taking only the formatted files
             result = "\n".join(f.formatted_content for f in format_result.files)
 
-        error_console.print(
-            f"Found [green]{len(format_result.files)}[/] matching files"
-        )
+        # Custom message based on content types
+        if github_items and filesystem_files:
+            error_console.print(
+                f"Downloaded [green]{len(github_items)}[/] GitHub items and found [green]{len(filesystem_files)}[/] matching files"
+            )
+        elif github_items:
+            error_console.print(
+                f"Downloaded [green]{len(github_items)}[/] GitHub {'item' if len(github_items) == 1 else 'items'}"
+            )
+        else:
+            error_console.print(
+                f"Found [green]{len(format_result.files)}[/] matching files"
+            )
 
         # Handle outputs
         if outfile:
