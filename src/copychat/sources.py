@@ -74,19 +74,46 @@ class GitHubItem:
         resp.raise_for_status()
         data = resp.json()
 
-        comments_resp = requests.get(data.get("comments_url"), headers=self._headers(), timeout=30)
+        comments_resp = requests.get(
+            data.get("comments_url"), headers=self._headers(), timeout=30
+        )
         comments_resp.raise_for_status()
         comments = comments_resp.json()
 
         review_comments = []
         if "pull_request" in data:
-            review_url = f"{self.api_base}/repos/{self.repo_path}/pulls/{self.number}/comments"
+            review_url = (
+                f"{self.api_base}/repos/{self.repo_path}/pulls/{self.number}/comments"
+            )
             rc = requests.get(review_url, headers=self._headers(), timeout=30)
             if rc.ok:
                 review_comments = rc.json()
 
         lines = [f"# {data.get('title', '')} (#{self.number})", ""]
         body = data.get("body") or ""
+
+        # Add metadata section
+        item_type = "Pull Request" if "pull_request" in data else "Issue"
+        html_url = data.get(
+            "html_url", f"https://github.com/{self.repo_path}/issues/{self.number}"
+        )
+        user = data.get("user", {}).get("login", "unknown")
+        created_at = data.get("created_at", "")
+        updated_at = data.get("updated_at", "")
+        state = data.get("state", "").upper()
+
+        # Create a metadata header
+        lines.extend(
+            [
+                f"> **{item_type}**: [{self.repo_path}#{self.number}]({html_url})",
+                f"> **Status**: {state}",
+                f"> **Author**: {user}",
+                f"> **Created**: {created_at}",
+                f"> **Updated**: {updated_at}",
+                "",
+            ]
+        )
+
         if body:
             lines.append(body)
             lines.append("")
@@ -109,6 +136,10 @@ class GitHubItem:
             lines.append("")
 
         content = "\n".join(lines).strip() + "\n"
-        item_type = "pr" if "pull_request" in data else "issue"
-        path = Path(f"{self.repo_path.replace('/', '_')}_{item_type}_{self.number}.md")
+        item_type_filename = "pr" if "pull_request" in data else "issue"
+        # Use absolute path to current working directory
+        filename = (
+            f"{self.repo_path.replace('/', '_')}_{item_type_filename}_{self.number}.md"
+        )
+        path = Path.cwd() / filename
         return path, content

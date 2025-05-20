@@ -1,5 +1,3 @@
-import pytest
-from pathlib import Path
 from copychat.sources import GitHubItem
 
 
@@ -25,10 +23,13 @@ def test_github_item_fetch(monkeypatch):
         "body": "Body text",
         "comments_url": "http://example.com/comments",
         "pull_request": {},
+        "html_url": "https://github.com/owner/repo/pull/1",
+        "user": {"login": "testuser"},
+        "created_at": "2024-01-01",
+        "updated_at": "2024-01-02",
+        "state": "open",
     }
-    comments = [
-        {"user": {"login": "alice"}, "created_at": "2024-01-01", "body": "hi"}
-    ]
+    comments = [{"user": {"login": "alice"}, "created_at": "2024-01-01", "body": "hi"}]
     reviews = [
         {
             "user": {"login": "bob"},
@@ -57,4 +58,8 @@ def test_github_item_fetch(monkeypatch):
     assert "Test issue" in content
     assert "alice" in content
     assert "looks good" in content
+    assert "**Pull Request**" in content
+    assert "**Status**: OPEN" in content
+    assert "**Author**: testuser" in content
+    assert "https://github.com/owner/repo/pull/1" in content
     assert any("pulls" in c for c in calls)

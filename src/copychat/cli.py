@@ -28,15 +28,29 @@ class SourceType(Enum):
 
 def parse_source(source: str) -> tuple[SourceType, str]:
     """Parse source string into type and location."""
+    import re
+
     if source.startswith(("github:", "gh:")):
         return SourceType.GITHUB, source.split(":", 1)[1]
-    if "github.com" in source:
-        # Handle raw GitHub URLs
+
+    # Handle GitHub URLs with issues/pulls
+    if source and source.startswith(("http://", "https://")) and "github.com" in source:
+        pr_issue_match = re.search(
+            r"github\.com/([^/]+/[^/]+)/(?:issues|pull)/([0-9]+)", source
+        )
+        if pr_issue_match:
+            # This is a PR or issue URL, keep it as FILESYSTEM type so it's processed directly
+            return SourceType.FILESYSTEM, source
+
+    # Regular GitHub repo URL
+    if source and "github.com" in source:
         parts = source.split("github.com/", 1)
         if len(parts) == 2:
             return SourceType.GITHUB, parts[1]
-    if source.startswith(("http://", "https://")):
+
+    if source and source.startswith(("http://", "https://")):
         return SourceType.WEB, source
+
     return SourceType.FILESYSTEM, source
 
 
@@ -267,6 +281,20 @@ def main(
             error_console.print("Found [red]0[/] matching files")
             return
 
+        # Separate GitHub issues/PRs from regular files for better reporting
+        github_items = []
+        filesystem_files = []
+
+        for path, content in all_files.items():
+            if (
+                str(path).endswith((".md", ".issue.md", ".pr.md"))
+                and isinstance(path, Path)
+                and not path.exists()
+            ):
+                github_items.append((path, content))
+            else:
+                filesystem_files.append((path, content))
+
         # Format files - pass both paths and content
         format_result = format_files_xml(
             [(path, content) for path, content in all_files.items()]
@@ -287,9 +315,19 @@ def main(
             # Skip the header by taking only the formatted files
             result = "\n".join(f.formatted_content for f in format_result.files)
 
-        error_console.print(
-            f"Found [green]{len(format_result.files)}[/] matching files"
-        )
+        # Custom message based on content types
+        if github_items and filesystem_files:
+            error_console.print(
+                f"Downloaded [green]{len(github_items)}[/] GitHub items and found [green]{len(filesystem_files)}[/] matching files"
+            )
+        elif github_items:
+            error_console.print(
+                f"Downloaded [green]{len(github_items)}[/] GitHub {'item' if len(github_items) == 1 else 'items'}"
+            )
+        else:
+            error_console.print(
+                f"Found [green]{len(format_result.files)}[/] matching files"
+            )
 
         # Handle outputs
         if outfile:
@@ -328,5 +366,3 @@ def main(
             raise
         error_console.print(f"[red]Error:[/] {str(e)}")
         raise typer.Exit(1)
-
-
