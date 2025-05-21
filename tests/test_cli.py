@@ -2,6 +2,7 @@ from typer.testing import CliRunner
 from copychat.cli import app
 import pyperclip
 import re
+from pathlib import Path
 
 runner = CliRunner(mix_stderr=False)
 
@@ -287,3 +288,58 @@ def test_cli_github_item_basic(monkeypatch):
     # at least make sure we attempted to parse the GitHub item format
     if result.exit_code != 0:
         assert "owner/repo#123" in result.stderr or "GitHub" in result.stderr
+
+
+def test_table_alignment_with_dot_path(tmp_path, monkeypatch):
+    """Test table alignment when path resolves to '.'"""
+    # Create a test file
+    test_file = tmp_path / "test.md"
+    test_file.write_text("# Test content")
+
+    # Mock relative_to so it returns "." path
+    original_relative_to = Path.relative_to
+
+    def mock_relative_to(self, other):
+        # Always return a path that is just "."
+        if str(self) == str(test_file):
+            return Path(".")
+        return original_relative_to(self, other)
+
+    monkeypatch.setattr(Path, "relative_to", mock_relative_to)
+
+    # Mock pyperclip.copy
+    copied_content = []
+
+    def mock_copy(text):
+        copied_content.append(text)
+
+    monkeypatch.setattr(pyperclip, "copy", mock_copy)
+
+    # Run CLI with verbose flag
+    result = runner.invoke(app, [str(test_file), "--verbose"])
+
+    assert result.exit_code == 0
+
+    # Ensure table is properly aligned in the output
+    table_output = strip_ansi(result.stderr)
+
+    # The "Path" header and first column content should be aligned
+    path_header_idx = table_output.find("│ Path")
+    assert path_header_idx > 0, "Path header not found in table"
+
+    # Extract the table rows by looking for lines with │ characters
+    table_lines = [line for line in table_output.split("\n") if "│" in line]
+
+    # Verify there are at least a header row and a data row
+    assert len(table_lines) >= 2, "Table should have header and data rows"
+
+    # Check that columns align vertically - the first │ should be at the same position in each row
+    positions = [line.find("│") for line in table_lines]
+    assert len(set(positions)) == 1, "Misaligned table columns (first pipe)"
+
+    # Check that second │ (after Path column) aligns in all rows
+    positions = [line.find("│", positions[0] + 1) for line in table_lines]
+    assert len(set(positions)) == 1, "Misaligned table columns (second pipe)"
+
+    # Confirm test.md appears in the table with proper alignment
+    assert "test.md" in table_output, "Filename should appear in table output"
