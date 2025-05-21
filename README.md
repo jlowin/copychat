@@ -161,7 +161,9 @@ You can also use the full URL:
 copychat https://github.com/owner/repo/issues/123
 ```
 
-Set `GITHUB_TOKEN` or use `--token` if you need to access private issues.
+For pull requests, the diff is included by default, giving you complete context of the proposed changes.
+
+Set `GITHUB_TOKEN` or use `--token` if you need to access private issues or PRs. A token may also provide higher rate limits when fetching PR diffs.
 
 The output is formatted like other files, with XML-style tags.
 

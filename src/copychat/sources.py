@@ -65,6 +65,29 @@ class GitHubItem:
             headers["Authorization"] = f"Bearer {self.token}"
         return headers
 
+    def _fetch_pr_diff(self) -> Optional[str]:
+        """Fetch the PR diff from GitHub."""
+        import requests
+
+        if not self.token:
+            error_console.print(
+                "[yellow]Warning: GitHub token not provided. Some rate limits may apply.[/]"
+            )
+
+        # Get the diff using the GitHub API
+        diff_url = f"{self.api_base}/repos/{self.repo_path}/pulls/{self.number}"
+        headers = self._headers()
+        headers["Accept"] = "application/vnd.github.diff"
+        try:
+            diff_resp = requests.get(diff_url, headers=headers, timeout=30)
+            diff_resp.raise_for_status()
+            return diff_resp.text
+        except Exception as e:
+            error_console.print(
+                f"[yellow]Warning: Failed to fetch PR diff: {str(e)}[/]"
+            )
+            return None
+
     def fetch(self) -> tuple[Path, str]:
         """Return (path, content) for the issue or PR."""
         import requests
@@ -81,7 +104,11 @@ class GitHubItem:
         comments = comments_resp.json()
 
         review_comments = []
-        if "pull_request" in data:
+        is_pr = "pull_request" in data
+        diff_content = None
+
+        if is_pr:
+            # Fetch review comments
             review_url = (
                 f"{self.api_base}/repos/{self.repo_path}/pulls/{self.number}/comments"
             )
@@ -89,11 +116,14 @@ class GitHubItem:
             if rc.ok:
                 review_comments = rc.json()
 
+            # Get the PR diff
+            diff_content = self._fetch_pr_diff()
+
         lines = [f"# {data.get('title', '')} (#{self.number})", ""]
         body = data.get("body") or ""
 
         # Add metadata section
-        item_type = "Pull Request" if "pull_request" in data else "Issue"
+        item_type = "Pull Request" if is_pr else "Issue"
         html_url = data.get(
             "html_url", f"https://github.com/{self.repo_path}/issues/{self.number}"
         )
@@ -118,6 +148,19 @@ class GitHubItem:
             lines.append(body)
             lines.append("")
 
+        # Add PR diff if available
+        if is_pr and diff_content:
+            lines.extend(
+                [
+                    "## PR Diff",
+                    "",
+                    "```diff",
+                    diff_content,
+                    "```",
+                    "",
+                ]
+            )
+
         for c in comments:
             user = c.get("user", {}).get("login", "unknown")
             created = c.get("created_at", "")
@@ -136,7 +179,7 @@ class GitHubItem:
             lines.append("")
 
         content = "\n".join(lines).strip() + "\n"
-        item_type_filename = "pr" if "pull_request" in data else "issue"
+        item_type_filename = "pr" if is_pr else "issue"
         # Use absolute path to current working directory
         filename = (
             f"{self.repo_path.replace('/', '_')}_{item_type_filename}_{self.number}.md"
