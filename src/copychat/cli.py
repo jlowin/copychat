@@ -5,6 +5,8 @@ from rich.console import Console
 import pyperclip
 from enum import Enum
 from importlib.metadata import version as get_version
+import atexit
+import shutil
 
 from .core import (
     scan_directory,
@@ -16,6 +18,20 @@ from .format import (
     create_display_header,
 )
 from .sources import GitHubSource, GitHubItem
+
+
+# Register cleanup of temporary GitHub directory
+def _cleanup_github_temp():
+    from .sources import _github_temp_dir
+
+    if _github_temp_dir is not None and _github_temp_dir.exists():
+        try:
+            shutil.rmtree(_github_temp_dir)
+        except Exception:
+            pass  # Ignore cleanup errors
+
+
+atexit.register(_cleanup_github_temp)
 
 
 class SourceType(Enum):

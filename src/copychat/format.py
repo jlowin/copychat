@@ -98,9 +98,31 @@ def create_header(result: FormatResult) -> str:
     timestamp = result.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
 
     # Create a table-like format for files
-    max_path_len = max(
-        len(str(f.path.relative_to(result.root_path))) for f in result.files
-    )
+    rel_paths = []
+    for f in result.files:
+        try:
+            rel_path = str(f.path.relative_to(result.root_path))
+            # Make sure path is not empty or just "."
+            if not rel_path or rel_path == ".":
+                # For GitHub items, use a more descriptive name
+                if (
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and ("_pr_" in f.path.name or "_issue_" in f.path.name)
+                ):
+                    # This appears to be a GitHub item, use a more descriptive name
+                    rel_path = f.path.name
+                else:
+                    rel_path = f.path.name or str(f.path)
+        except ValueError:
+            rel_path = str(f.path)  # Fallback to full path if not a subpath
+        rel_paths.append(rel_path)
+
+    # Use the minimum of the longest path or 50 chars
+    max_path_len = (
+        max(len(path) for path in rel_paths) if rel_paths else 4
+    )  # Min "Path" header width
+    max_path_len = max(max_path_len, 4)  # Ensure min width for "Path" header
     max_path_len = min(max_path_len, 50)  # Cap path length for readability
 
     # Calculate line counts
@@ -120,14 +142,11 @@ def create_header(result: FormatResult) -> str:
     ]
 
     # Format each file as a table row
-    for f in sorted(result.files, key=lambda x: str(x.path)):
-        try:
-            rel_path = str(f.path.relative_to(result.root_path))
-            if len(rel_path) > max_path_len:
-                trunc_len = max_path_len - 3
-                rel_path = "..." + rel_path[-trunc_len:]
-        except ValueError:
-            rel_path = str(f.path)  # Fallback to full path if not a subpath
+    for i, f in enumerate(sorted(result.files, key=lambda x: str(x.path))):
+        rel_path = rel_paths[i]
+        if len(rel_path) > max_path_len:
+            trunc_len = max_path_len - 3
+            rel_path = "..." + rel_path[-trunc_len:]
 
         lines = file_lines[f.path]
         header.append(
@@ -150,9 +169,31 @@ def create_display_header(result: FormatResult) -> str:
     timestamp = result.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC")
 
     # Create a table-like format for files
-    max_path_len = max(
-        len(str(f.path.relative_to(result.root_path))) for f in result.files
-    )
+    rel_paths = []
+    for f in result.files:
+        try:
+            rel_path = str(f.path.relative_to(result.root_path))
+            # Make sure path is not empty or just "."
+            if not rel_path or rel_path == ".":
+                # For GitHub items, use a more descriptive name
+                if (
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and ("_pr_" in f.path.name or "_issue_" in f.path.name)
+                ):
+                    # This appears to be a GitHub item, use a more descriptive name
+                    rel_path = f.path.name
+                else:
+                    rel_path = f.path.name or str(f.path)
+        except ValueError:
+            rel_path = str(f.path)  # Fallback to full path if not a subpath
+        rel_paths.append(rel_path)
+
+    # Use the minimum of the longest path or 50 chars
+    max_path_len = (
+        max(len(path) for path in rel_paths) if rel_paths else 4
+    )  # Min "Path" header width
+    max_path_len = max(max_path_len, 4)  # Ensure min width for "Path" header
     max_path_len = min(max_path_len, 50)  # Cap path length for readability
 
     # Calculate line counts
@@ -170,14 +211,11 @@ def create_display_header(result: FormatResult) -> str:
     ]
 
     # Format each file as a table row
-    for f in sorted(result.files, key=lambda x: str(x.path)):
-        try:
-            rel_path = str(f.path.relative_to(result.root_path))
-            if len(rel_path) > max_path_len:
-                trunc_len = max_path_len - 3
-                rel_path = "..." + rel_path[-trunc_len:]
-        except ValueError:
-            rel_path = str(f.path)  # Fallback to full path if not a subpath
+    for i, f in enumerate(sorted(result.files, key=lambda x: str(x.path))):
+        rel_path = rel_paths[i]
+        if len(rel_path) > max_path_len:
+            trunc_len = max_path_len - 3
+            rel_path = "..." + rel_path[-trunc_len:]
 
         lines = file_lines[f.path]
         header.append(

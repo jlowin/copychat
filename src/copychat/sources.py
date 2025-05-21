@@ -3,8 +3,20 @@ import shutil
 from typing import Optional
 import git
 from rich.console import Console
+import tempfile
 
 error_console = Console(stderr=True)
+
+# Shared temporary directory for GitHub items
+_github_temp_dir = None
+
+
+def get_github_temp_dir() -> Path:
+    """Get a temporary directory for GitHub items that persists for the process."""
+    global _github_temp_dir
+    if _github_temp_dir is None:
+        _github_temp_dir = Path(tempfile.mkdtemp(prefix="copychat_github_"))
+    return _github_temp_dir
 
 
 class GitHubSource:
@@ -180,9 +192,12 @@ class GitHubItem:
 
         content = "\n".join(lines).strip() + "\n"
         item_type_filename = "pr" if is_pr else "issue"
-        # Use absolute path to current working directory
+
+        # Use temporary directory instead of current working directory
         filename = (
             f"{self.repo_path.replace('/', '_')}_{item_type_filename}_{self.number}.md"
         )
-        path = Path.cwd() / filename
+        temp_dir = get_github_temp_dir()
+        path = temp_dir / filename
+
         return path, content
