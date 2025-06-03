@@ -355,3 +355,75 @@ class GitHubItem:
         path = temp_dir / filename
 
         return path, content
+
+
+class GitHubFile:
+    """Fetch a single file from GitHub via blob URL."""
+
+    def __init__(self, blob_url: str, token: Optional[str] = None):
+        self.blob_url = blob_url
+        self.token = token
+
+        # Parse the blob URL to extract repo, ref, and file path
+        import re
+
+        match = re.search(r"github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.*)", blob_url)
+        if not match:
+            raise ValueError(f"Invalid GitHub blob URL: {blob_url}")
+
+        self.repo_path = match.group(1)
+        self.ref = match.group(2)
+        self.file_path = match.group(3)
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Accept": "application/vnd.github+json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
+
+    def fetch(self) -> tuple[Path, str]:
+        """Fetch the file content and return (path, content)."""
+        import requests
+
+        # Use the raw.githubusercontent.com URL for direct file access
+        raw_url = f"https://raw.githubusercontent.com/{self.repo_path}/{self.ref}/{self.file_path}"
+
+        try:
+            resp = requests.get(raw_url, timeout=30)
+            resp.raise_for_status()
+            content = resp.text
+        except Exception as e:
+            error_console.print(
+                f"[yellow]Warning: Failed to fetch from raw URL, trying API:[/] {str(e)}"
+            )
+
+            # Fallback to GitHub API
+            api_url = f"https://api.github.com/repos/{self.repo_path}/contents/{self.file_path}"
+            params = {"ref": self.ref}
+
+            try:
+                resp = requests.get(
+                    api_url, headers=self._headers(), params=params, timeout=30
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+                if data.get("type") != "file":
+                    raise Exception(
+                        f"URL points to a {data.get('type', 'unknown')}, not a file"
+                    )
+
+                # Decode base64 content
+                import base64
+
+                content = base64.b64decode(data["content"]).decode("utf-8")
+            except Exception as api_error:
+                error_console.print(f"[red]Failed to fetch file:[/] {str(api_error)}")
+                raise
+
+        # Create a meaningful filename in temp directory
+        filename = f"{self.repo_path.replace('/', '_')}_{self.ref}_{self.file_path.replace('/', '_')}"
+        temp_dir = get_github_temp_dir()
+        path = temp_dir / filename
+
+        return path, content

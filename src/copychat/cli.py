@@ -17,7 +17,7 @@ from .format import (
     format_files as format_files_xml,
     create_display_header,
 )
-from .sources import GitHubSource, GitHubItem
+from .sources import GitHubSource, GitHubItem, GitHubFile
 
 
 # Register cleanup of temporary GitHub directory
@@ -58,6 +58,12 @@ def parse_source(source: str) -> tuple[SourceType, str]:
             # This is a PR, issue, or discussion URL, keep it as FILESYSTEM type so it's processed directly
             return SourceType.FILESYSTEM, source
 
+        # Handle GitHub blob URLs (individual files)
+        blob_match = re.search(r"github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.*)", source)
+        if blob_match:
+            # This is a GitHub blob URL, keep it as FILESYSTEM type so it's processed directly
+            return SourceType.FILESYSTEM, source
+
     # Regular GitHub repo URL
     if source and "github.com" in source:
         parts = source.split("github.com/", 1)
@@ -95,6 +101,17 @@ def parse_github_item(item: str) -> tuple[str, int, str]:
         )  # Default to issue for backward compatibility
 
     raise typer.BadParameter("Item must be in owner/repo#number format or URL")
+
+
+def parse_github_blob(item: str) -> tuple[str, str, str]:
+    """Parse GitHub blob URL into repo, ref, and file path."""
+    import re
+
+    match = re.search(r"github\.com/([^/]+/[^/]+)/blob/([^/]+)/(.*)", item)
+    if not match:
+        raise typer.BadParameter("Invalid GitHub blob URL")
+
+    return match.group(1), match.group(2), match.group(3)  # repo, ref, file_path
 
 
 def diff_mode_callback(value: str) -> DiffMode:
@@ -250,6 +267,7 @@ def main(
             for path in paths:
                 if debug:
                     error_console.print(f"[cyan]Processing path:[/] {path}")
+
                 # Allow GitHub issues/PRs/discussions as direct arguments
                 try:
                     repo, num, item_type = parse_github_item(path)
@@ -269,6 +287,28 @@ def main(
                     if debug:
                         error_console.print(
                             f"[yellow]Failed to process as GitHub item:[/] {str(e)}"
+                        )
+                    pass
+
+                # Allow GitHub blob URLs (individual files)
+                try:
+                    repo, ref, file_path = parse_github_blob(path)
+                    if debug:
+                        error_console.print(
+                            f"[blue]Processing GitHub file:[/] {repo}/{file_path}@{ref}"
+                        )
+                    gh_file = GitHubFile(path, token)
+                    p, content = gh_file.fetch()
+                    all_files[p] = content
+                    if debug:
+                        error_console.print(
+                            "[green]Successfully fetched GitHub file[/]"
+                        )
+                    continue
+                except Exception as e:
+                    if debug:
+                        error_console.print(
+                            f"[yellow]Failed to process as GitHub blob:[/] {str(e)}"
                         )
                     pass
 
@@ -336,6 +376,15 @@ def main(
                 str(path).endswith((".md", ".issue.md", ".pr.md", ".discussion.md"))
                 and isinstance(path, Path)
                 and not path.exists()
+            ) or (
+                # Also detect GitHub files by checking if the filename contains repo info and doesn't exist locally
+                isinstance(path, Path)
+                and not path.exists()
+                and "_"
+                in str(
+                    path.name
+                )  # GitHub files have underscores from repo/ref/path formatting
+                and any(part in str(path.name) for part in ["github", "blob", "_"])
             ):
                 github_items.append((path, content))
             else:

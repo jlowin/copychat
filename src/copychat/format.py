@@ -113,6 +113,13 @@ def create_header(result: FormatResult) -> str:
                         or "_issue_" in f.path.name
                         or "_discussion_" in f.path.name
                     )
+                ) or (
+                    # Also check for GitHub blob files (they have repo_ref_filepath pattern)
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and "_" in f.path.name
+                    and len(f.path.name.split("_"))
+                    >= 3  # repo_ref_filepath has at least 3 parts
                 ):
                     # This appears to be a GitHub item, use a more descriptive name
                     rel_path = f.path.name
@@ -188,6 +195,13 @@ def create_display_header(result: FormatResult) -> str:
                         or "_issue_" in f.path.name
                         or "_discussion_" in f.path.name
                     )
+                ) or (
+                    # Also check for GitHub blob files (they have repo_ref_filepath pattern)
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and "_" in f.path.name
+                    and len(f.path.name.split("_"))
+                    >= 3  # repo_ref_filepath has at least 3 parts
                 ):
                     # This appears to be a GitHub item, use a more descriptive name
                     rel_path = f.path.name
