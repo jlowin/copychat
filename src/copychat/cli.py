@@ -433,8 +433,8 @@ def main(
             error_console.print(
                 f"Output {'appended' if append else 'written'} to [green]{outfile}[/]"
             )
-        # Handle clipboard only if not writing to file
-        else:
+        # Only use clipboard if not writing to file AND not just printing to stdout
+        elif not print_output or append:
             if append:
                 try:
                     existing_clipboard = pyperclip.paste()
@@ -444,13 +444,24 @@ def main(
                         "[yellow]Warning: Could not read clipboard for append[/]"
                     )
 
-            pyperclip.copy(result)
-            # Calculate total lines outside the f-string
-            total_lines = sum(f.content.count("\n") + 1 for f in format_result.files)
-            error_console.print(
-                f"{'Appended' if append else 'Copied'} to clipboard "
-                f"(~{format_result.total_tokens:,} tokens, {total_lines:,} lines)"
-            )
+            try:
+                pyperclip.copy(result)
+                # Calculate total lines outside the f-string
+                total_lines = sum(
+                    f.content.count("\n") + 1 for f in format_result.files
+                )
+                error_console.print(
+                    f"{'Appended' if append else 'Copied'} to clipboard "
+                    f"(~{format_result.total_tokens:,} tokens, {total_lines:,} lines)"
+                )
+            except Exception as e:
+                error_console.print(
+                    f"[yellow]Warning: Could not copy to clipboard: {str(e)}[/]"
+                )
+                if not print_output:
+                    # If clipboard failed and we're not printing, show the content
+                    error_console.print("[cyan]Content would have been:[/]")
+                    print(result)
 
         # Print to stdout only if explicitly requested
         if print_output:
