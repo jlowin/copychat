@@ -146,26 +146,39 @@ copychat --source github:username/repo src/main.py tests/
 
 The `--source` flag specifies where to look (GitHub, filesystem, etc.), and then any additional arguments specify which paths within that source to process. This means you can target specific files or directories within a GitHub repository just like you would with local files.
 
-#### Reading GitHub Issues & PRs
+#### Reading GitHub Issues, PRs & Discussions
 
-Copy the full text and comment history of a GitHub issue or pull request by
-passing the issue identifier directly to the main command:
+Copy the full text and comment history of a GitHub issue, pull request, or discussion by
+passing the identifier directly to the main command:
 
 ```bash
+# Issues and PRs
 copychat owner/repo#123
-```
-
-You can also use the full URL:
-
-```bash
 copychat https://github.com/owner/repo/issues/123
+copychat https://github.com/owner/repo/pull/456
+
+# Discussions  
+copychat https://github.com/owner/repo/discussions/789
 ```
 
 For pull requests, the diff is included by default, giving you complete context of the proposed changes.
 
-Set `GITHUB_TOKEN` or use `--token` if you need to access private issues or PRs. A token may also provide higher rate limits when fetching PR diffs.
+Set `GITHUB_TOKEN` or use `--token` if you need to access private content or want higher rate limits.
 
-The output is formatted like other files, with XML-style tags.
+#### Reading Individual GitHub Files
+
+You can fetch individual files directly from GitHub without cloning the entire repository by using blob URLs:
+
+```bash
+# Fetch a specific file from a commit/branch/tag
+copychat https://github.com/owner/repo/blob/main/src/api.py
+copychat https://github.com/owner/repo/blob/v1.2.3/config/settings.yaml
+copychat https://github.com/owner/repo/blob/abc123def/docs/README.md
+```
+
+This is perfect for quickly grabbing specific files for context without the overhead of repository cloning.
+
+The output is formatted like other files, with XML-style tags and proper language detection.
 
 ### Output Options
 
