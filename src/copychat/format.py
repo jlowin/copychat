@@ -108,7 +108,11 @@ def create_header(result: FormatResult) -> str:
                 if (
                     isinstance(f.path, Path)
                     and f.path.name
-                    and ("_pr_" in f.path.name or "_issue_" in f.path.name)
+                    and (
+                        "_pr_" in f.path.name
+                        or "_issue_" in f.path.name
+                        or "_discussion_" in f.path.name
+                    )
                 ):
                     # This appears to be a GitHub item, use a more descriptive name
                     rel_path = f.path.name
@@ -179,7 +183,11 @@ def create_display_header(result: FormatResult) -> str:
                 if (
                     isinstance(f.path, Path)
                     and f.path.name
-                    and ("_pr_" in f.path.name or "_issue_" in f.path.name)
+                    and (
+                        "_pr_" in f.path.name
+                        or "_issue_" in f.path.name
+                        or "_discussion_" in f.path.name
+                    )
                 ):
                     # This appears to be a GitHub item, use a more descriptive name
                     rel_path = f.path.name

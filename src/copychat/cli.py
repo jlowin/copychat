@@ -49,13 +49,13 @@ def parse_source(source: str) -> tuple[SourceType, str]:
     if source.startswith(("github:", "gh:")):
         return SourceType.GITHUB, source.split(":", 1)[1]
 
-    # Handle GitHub URLs with issues/pulls
+    # Handle GitHub URLs with issues/pulls/discussions
     if source and source.startswith(("http://", "https://")) and "github.com" in source:
         pr_issue_match = re.search(
-            r"github\.com/([^/]+/[^/]+)/(?:issues|pull)/([0-9]+)", source
+            r"github\.com/([^/]+/[^/]+)/(?:issues|pull|discussions)/([0-9]+)", source
         )
         if pr_issue_match:
-            # This is a PR or issue URL, keep it as FILESYSTEM type so it's processed directly
+            # This is a PR, issue, or discussion URL, keep it as FILESYSTEM type so it's processed directly
             return SourceType.FILESYSTEM, source
 
     # Regular GitHub repo URL
@@ -70,19 +70,29 @@ def parse_source(source: str) -> tuple[SourceType, str]:
     return SourceType.FILESYSTEM, source
 
 
-def parse_github_item(item: str) -> tuple[str, int]:
-    """Parse issue or PR identifier into repo and number."""
+def parse_github_item(item: str) -> tuple[str, int, str]:
+    """Parse issue, PR, or discussion identifier into repo, number, and type."""
     import re
 
     if item.startswith("http://") or item.startswith("https://"):
-        m = re.search(r"github\.com/([^/]+/[^/]+)/(?:issues|pull)/([0-9]+)", item)
+        m = re.search(
+            r"github\.com/([^/]+/[^/]+)/(issues|pull|discussions)/([0-9]+)", item
+        )
         if not m:
             raise typer.BadParameter("Invalid GitHub URL")
-        return m.group(1), int(m.group(2))
+        return (
+            m.group(1),
+            int(m.group(3)),
+            m.group(2).rstrip("s"),
+        )  # Remove 's' from 'issues' -> 'issue'
 
     if "#" in item:
         repo, num = item.split("#", 1)
-        return repo.strip(), int(num)
+        return (
+            repo.strip(),
+            int(num),
+            "issue",
+        )  # Default to issue for backward compatibility
 
     raise typer.BadParameter("Item must be in owner/repo#number format or URL")
 
@@ -200,6 +210,12 @@ def main(
             parse_source(source) if source else (SourceType.FILESYSTEM, ".")
         )
 
+        if debug:
+            error_console.print(
+                f"[magenta]Source type:[/] {source_type}, location: {source_loc}"
+            )
+            error_console.print(f"[magenta]Paths to process:[/] {paths}")
+
         # Handle different source types
         if source_type == SourceType.GITHUB:
             try:
@@ -232,14 +248,28 @@ def main(
             # Handle paths
             all_files = {}
             for path in paths:
-                # Allow GitHub issues/PRs as direct arguments
+                if debug:
+                    error_console.print(f"[cyan]Processing path:[/] {path}")
+                # Allow GitHub issues/PRs/discussions as direct arguments
                 try:
-                    repo, num = parse_github_item(path)
-                    gh_item = GitHubItem(repo, num, token)
+                    repo, num, item_type = parse_github_item(path)
+                    if debug:
+                        error_console.print(
+                            f"[blue]Processing GitHub {item_type}:[/] {repo}#{num}"
+                        )
+                    gh_item = GitHubItem(repo, num, token, item_type)
                     p, content = gh_item.fetch()
                     all_files[p] = content
+                    if debug:
+                        error_console.print(
+                            f"[green]Successfully fetched GitHub {item_type}[/]"
+                        )
                     continue
-                except Exception:
+                except Exception as e:
+                    if debug:
+                        error_console.print(
+                            f"[yellow]Failed to process as GitHub item:[/] {str(e)}"
+                        )
                     pass
 
                 target = Path(path)
@@ -303,7 +333,7 @@ def main(
 
         for path, content in all_files.items():
             if (
-                str(path).endswith((".md", ".issue.md", ".pr.md"))
+                str(path).endswith((".md", ".issue.md", ".pr.md", ".discussion.md"))
                 and isinstance(path, Path)
                 and not path.exists()
             ):
