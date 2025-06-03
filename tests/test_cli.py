@@ -4,7 +4,7 @@ import pyperclip
 import re
 from pathlib import Path
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def strip_ansi(text: str) -> str:
@@ -259,7 +259,7 @@ def test_cli_verbose_output(tmp_path, monkeypatch):
 
 def test_cli_github_item_basic(monkeypatch):
     """Basic test for GitHub item handling that doesn't rely on internal implementation."""
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
 
     # Instead of mocking complex internals, just provide a simple mock for the scan_directory function
     # so it returns a known result when the CLI processes a GitHub item
