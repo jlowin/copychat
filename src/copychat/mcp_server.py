@@ -3,15 +3,18 @@ from fastmcp import FastMCP
 from pydantic import Field
 import pyperclip
 
+from typer.testing import CliRunner
+
 mcp = FastMCP(
     "Copychat",
-    instructions="An MC server for copying source code and GitHub items to the clipboard.",
+    instructions="An MCP server for copying source code and GitHub items to the clipboard. Use this whenever the user wants you to copy something.",
 )
 
 
 @mcp.tool
-def copy_to_clipboard(text: str) -> None:
-    """Copy any text to the clipboard."""
+def copy_text_to_clipboard(text: str) -> None:
+    """Copy any text to the clipboard. This is useful for copying ad-hoc text.
+    For files, use `copychat_files` instead."""
     pyperclip.copy(text)
     return f"Copied {len(text)} characters to the clipboard."
 
@@ -23,7 +26,7 @@ def read_clipboard() -> str:
 
 
 @mcp.tool
-def copychat_files(
+def copy_files_to_clipboard(
     paths: list[str],
     include: Annotated[
         str | None,
@@ -44,17 +47,33 @@ def copychat_files(
         ),
     ] = False,
 ) -> None:
-    """Copy local files to the clipboard."""
-    from copychat.cli import main
+    """Copy local files to the clipboard without loading them into context."""
+    from copychat.cli import app
 
-    main(
-        paths=paths,
-        include=include,
-        exclude=exclude.split(",") if exclude else None,
-        append=append_to_clipboard,
-        quiet=True,
-    )
-    return "Copied files to the clipboard."
+    if not paths:
+        raise ValueError("No paths provided")
+
+    runner = CliRunner()
+
+    args = [*paths]
+
+    if include:
+        args.append("--include")
+        args.append(include)
+
+    if exclude:
+        args.append("--exclude")
+        args.append(exclude)
+
+    if append_to_clipboard:
+        args.append("--append")
+
+    result = runner.invoke(app, args + ["-v"])
+
+    if result.exception:
+        raise result.exception
+
+    return result.output
 
 
 if __name__ == "__main__":

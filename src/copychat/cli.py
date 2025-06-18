@@ -1,6 +1,6 @@
 import typer
 from pathlib import Path
-from typing import Optional, List
+from typing import Annotated
 from rich.console import Console
 import pyperclip
 from enum import Enum
@@ -135,86 +135,114 @@ error_console = Console(stderr=True)
 
 @app.command()
 def main(
-    paths: list[str] = typer.Argument(
-        None,
-        help="Paths to process within the source (defaults to current directory)",
-    ),
-    version: bool = typer.Option(
-        None,
-        "--version",
-        help="Show version and exit.",
-        is_eager=True,
-    ),
-    source: Optional[str] = typer.Option(
-        None,
-        "--source",
-        "-s",
-        help="Source to scan (filesystem path, github:owner/repo, or URL)",
-    ),
-    outfile: Optional[Path] = typer.Option(
-        None,
-        "--out",
-        "-o",
-        help="Write output to file. If provided, output will not be copied to clipboard.",
-    ),
-    append: bool = typer.Option(
-        False,
-        "--append",
-        "-a",
-        help="Append output instead of overwriting",
-    ),
-    print_output: bool = typer.Option(
-        False,
-        "--print",
-        "-p",
-        help="Print output to screen",
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Show detailed file information in output",
-    ),
-    include: Optional[str] = typer.Option(
-        None,
-        "--include",
-        "-i",
-        help="Extensions to include (comma-separated, e.g. 'py,js,ts')",
-    ),
-    exclude: Optional[List[str]] = typer.Option(
-        None,
-        "--exclude",
-        "-x",
-        help="Glob patterns to exclude",
-    ),
-    diff_mode: str = typer.Option(
-        "full",  # Pass the string value instead of enum
-        "--diff-mode",
-        help="How to handle git diffs",
-        callback=diff_mode_callback,
-    ),
-    depth: Optional[int] = typer.Option(
-        None,
-        "--depth",
-        "-d",
-        help="Maximum directory depth to scan (0 = current dir only)",
-    ),
-    debug: bool = typer.Option(
-        False,
-        "--debug",
-        help="Debug mode for development",
-    ),
-    compare_branch: Optional[str] = typer.Option(
-        None,
-        "--diff-branch",
-        help="Compare changes against specified branch instead of working directory",
-    ),
-    token: Optional[str] = typer.Option(
-        None,
-        "--token",
-        envvar="GITHUB_TOKEN",
-        help="GitHub token for issue and PR access",
-    ),
+    paths: Annotated[
+        list[str],
+        typer.Argument(
+            help="Paths to process within the source (defaults to current directory)",
+        ),
+    ],
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            help="Show version and exit.",
+            is_eager=True,
+        ),
+    ] = None,
+    source: Annotated[
+        str | None,
+        typer.Option(
+            "--source",
+            "-s",
+            help="Source to scan (filesystem path, github:owner/repo, or URL)",
+        ),
+    ] = None,
+    outfile: Annotated[
+        Path | None,
+        typer.Option(
+            "--out",
+            "-o",
+            help="Write output to file. If provided, output will not be copied to clipboard.",
+        ),
+    ] = None,
+    append: Annotated[
+        bool,
+        typer.Option(
+            "--append",
+            "-a",
+            help="Append output instead of overwriting",
+        ),
+    ] = False,
+    print_output: Annotated[
+        bool,
+        typer.Option(
+            "--print",
+            "-p",
+            help="Print output to screen",
+        ),
+    ] = False,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            "--verbose",
+            "-v",
+            help="Show detailed file information in output",
+        ),
+    ] = False,
+    include: Annotated[
+        str | None,
+        typer.Option(
+            "--include",
+            "-i",
+            help="Extensions to include (comma-separated, e.g. 'py,js,ts')",
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--exclude",
+            "-x",
+            help="Glob patterns to exclude",
+        ),
+    ] = None,
+    diff_mode: Annotated[
+        str,
+        typer.Option(
+            "--diff-mode",
+            help="How to handle git diffs",
+            callback=diff_mode_callback,
+        ),
+    ] = "full",
+    depth: Annotated[
+        int | None,
+        typer.Option(
+            "--depth",
+            "-d",
+            help="Maximum directory depth to scan (0 = current dir only)",
+        ),
+    ] = None,
+    debug: Annotated[
+        bool,
+        typer.Option(
+            "--debug",
+            help="Debug mode for development",
+        ),
+    ] = False,
+    compare_branch: Annotated[
+        str | None,
+        typer.Option(
+            "--diff-branch",
+            help="Compare changes against specified branch instead of working directory",
+        ),
+    ] = None,
+    token: Annotated[
+        str | None,
+        typer.Option(
+            "--token",
+            envvar="GITHUB_TOKEN",
+            help="GitHub token for issue and PR access",
+        ),
+    ] = None,
 ) -> None:
     """Convert source code files to markdown format for LLM context."""
     if version:
