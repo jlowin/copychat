@@ -16,11 +16,13 @@ Copychat is a lightweight CLI tool that prepares your code for conversations wit
 ## Running Copychat
 
 You can use [uv](https://docs.astral.sh/uv/) to run copychat directly from the command line, without needing to install it first:
+
 ```bash
 uvx copychat
 ```
 
 Frequent users may want to add the following alias to their `.zshrc` or `.bashrc`:
+
 ```bash
 alias cc="uvx copychat"
 ```
@@ -30,24 +32,45 @@ This permits you to quickly copy context by running e.g. `cc docs/getting-starte
 If you want to save a few milliseconds, you can install copychat globally with `uv tool install copychat` or add it to your environment with `uv add copychat`. And of course, `pip install copychat` works too.
 
 ## Quick Start
+
 Collect, format, and copy all source code in the current directory (and subdirectories) to the clipboard:
+
 ```bash
 copychat
 ```
 
 Copy only Python files to clipboard:
+
 ```bash
 copychat -i py
 ```
 
 Copy specific files, including any git diffs:
+
 ```bash
 copychat src/ tests/test_api.py --diff-mode full-with-diff
 ```
 
 Use GitHub as a source instead of the local filesystem:
+
 ```bash
 copychat src/ -s github:prefecthq/controlflow
+```
+
+## MCP Server
+
+Copychat can run as an MCP (Model Context Protocol) server, allowing AI assistants and other MCP clients to access its functionality directly, including simple ad-hoc copy/paste functionality. This enables seamless integration with tools like Cursor, Claude Desktop, Claude Code, and other MCP-compatible applications.
+
+Start the MCP server locally:
+
+```bash
+copychat mcp
+```
+
+For MCP clients that support local STDIO servers, use the following command to run the MCP server without needing to install copychat first:
+
+```bash
+uvx copychat mcp
 ```
 
 ## Usage Guide
@@ -110,6 +133,7 @@ copychat --diff-mode diff-only --diff-branch develop
 ```
 
 The `-diff-mode` and `--diff-branch` options are particularly useful when you want to:
+
 - Review any changes you've made, either in isolation or in context
 - Compare changes against a specific branch
 
@@ -259,6 +283,7 @@ Copychat automatically recognizes and properly formats many common file types, i
 ## Output Format
 
 Copychat generates clean, structured output with:
+
 - File paths and language tags
 - Token count estimates
 - Git diff information (when requested)
@@ -288,6 +313,7 @@ project/
 ```
 
 In this example:
+
 - `*.log` files are excluded everywhere
 - `*.tmp` files are only excluded in `src/` and its subdirectories
 - `*.fixture` files are only excluded in `tests/` and its subdirectories

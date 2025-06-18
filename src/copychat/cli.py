@@ -18,6 +18,7 @@ from .format import (
     create_display_header,
 )
 from .sources import GitHubSource, GitHubItem, GitHubFile
+from copychat.cli_utilities import TyperWithDefaultCommand
 
 
 # Register cleanup of temporary GitHub directory
@@ -125,15 +126,14 @@ def diff_mode_callback(value: str) -> DiffMode:
         raise typer.BadParameter(f"Must be one of: {', '.join(valid_values)}")
 
 
-app = typer.Typer(
-    no_args_is_help=True,  # Show help when no args provided
+app = TyperWithDefaultCommand(
     add_completion=False,  # Disable shell completion for simplicity
 )
 console = Console()
 error_console = Console(stderr=True)
 
 
-@app.command()
+@app.command(default=True)
 def main(
     paths: Annotated[
         list[str],
@@ -500,3 +500,10 @@ def main(
             raise
         error_console.print(f"[red]Error:[/] {str(e)}")
         raise typer.Exit(1)
+
+
+@app.command()
+def mcp():
+    from .mcp_server import mcp
+
+    mcp.run()
