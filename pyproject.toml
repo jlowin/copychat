@@ -10,8 +10,9 @@ dependencies = [
     "pathspec>=0.12.1",
     "tiktoken>=0.6.0",
     "gitpython>=3.1.42",
+    "fastmcp>=2.8.1",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 license = { text = "MIT" }
 
@@ -37,6 +38,6 @@ addopts = "-v --tb=short"
 dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.3.3",
- "pytest-asyncio>=0.24.0",
- "pytest-cov>=5.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
 ]
