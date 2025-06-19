@@ -153,8 +153,36 @@ def create_header(result: FormatResult) -> str:
     ]
 
     # Format each file as a table row
-    for i, f in enumerate(sorted(result.files, key=lambda x: str(x.path))):
-        rel_path = rel_paths[i]
+    for f in sorted(result.files, key=lambda x: str(x.path)):
+        # Calculate relative path for this specific file
+        try:
+            rel_path = str(f.path.relative_to(result.root_path))
+            # Make sure path is not empty or just "."
+            if not rel_path or rel_path == ".":
+                # For GitHub items, use a more descriptive name
+                if (
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and (
+                        "_pr_" in f.path.name
+                        or "_issue_" in f.path.name
+                        or "_discussion_" in f.path.name
+                    )
+                ) or (
+                    # Also check for GitHub blob files (they have repo_ref_filepath pattern)
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and "_" in f.path.name
+                    and len(f.path.name.split("_"))
+                    >= 3  # repo_ref_filepath has at least 3 parts
+                ):
+                    # This appears to be a GitHub item, use a more descriptive name
+                    rel_path = f.path.name
+                else:
+                    rel_path = f.path.name or str(f.path)
+        except ValueError:
+            rel_path = str(f.path)  # Fallback to full path if not a subpath
+        
         if len(rel_path) > max_path_len:
             trunc_len = max_path_len - 3
             rel_path = "..." + rel_path[-trunc_len:]
@@ -233,8 +261,36 @@ def create_display_header(result: FormatResult) -> str:
     ]
 
     # Format each file as a table row
-    for i, f in enumerate(sorted(result.files, key=lambda x: str(x.path))):
-        rel_path = rel_paths[i]
+    for f in sorted(result.files, key=lambda x: str(x.path)):
+        # Calculate relative path for this specific file
+        try:
+            rel_path = str(f.path.relative_to(result.root_path))
+            # Make sure path is not empty or just "."
+            if not rel_path or rel_path == ".":
+                # For GitHub items, use a more descriptive name
+                if (
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and (
+                        "_pr_" in f.path.name
+                        or "_issue_" in f.path.name
+                        or "_discussion_" in f.path.name
+                    )
+                ) or (
+                    # Also check for GitHub blob files (they have repo_ref_filepath pattern)
+                    isinstance(f.path, Path)
+                    and f.path.name
+                    and "_" in f.path.name
+                    and len(f.path.name.split("_"))
+                    >= 3  # repo_ref_filepath has at least 3 parts
+                ):
+                    # This appears to be a GitHub item, use a more descriptive name
+                    rel_path = f.path.name
+                else:
+                    rel_path = f.path.name or str(f.path)
+        except ValueError:
+            rel_path = str(f.path)  # Fallback to full path if not a subpath
+        
         if len(rel_path) > max_path_len:
             trunc_len = max_path_len - 3
             rel_path = "..." + rel_path[-trunc_len:]
